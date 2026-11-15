@@ -13,28 +13,34 @@ contract OrynPoolHandler is Test {
     OrynPool public pool;
     MockERC20 public usdc;
     MockERC20 public eurc;
+    MockERC20 public cirbtc;
     MirrorAggregator public feed;
     MockAggregator public usdcFeed;
+    MockAggregator public btcFeed;
     address public updater;
     uint80 public srcRound = 1_000;
     address[3] public actors;
 
-    constructor(OrynPool pool_, MockERC20 usdc_, MockERC20 eurc_, MirrorAggregator feed_, MockAggregator usdcFeed_,
-        address updater_) {
+    constructor(OrynPool pool_, MockERC20 usdc_, MockERC20 eurc_, MockERC20 cirbtc_, MirrorAggregator feed_,
+        MockAggregator usdcFeed_, MockAggregator btcFeed_, address updater_) {
         pool = pool_;
         usdc = usdc_;
         eurc = eurc_;
+        cirbtc = cirbtc_;
         feed = feed_;
         usdcFeed = usdcFeed_;
+        btcFeed = btcFeed_;
         updater = updater_;
         for (uint256 i; i < 3; ++i) {
             address a = makeAddr(string.concat("actor", vm.toString(i)));
             actors[i] = a;
             usdc.mint(a, 1e15);
             eurc.mint(a, 1e15);
+            cirbtc.mint(a, 1e12);
             vm.startPrank(a);
             usdc.approve(address(pool), type(uint256).max);
             eurc.approve(address(pool), type(uint256).max);
+            cirbtc.approve(address(pool), type(uint256).max);
             vm.stopPrank();
         }
     }
@@ -44,41 +50,47 @@ contract OrynPoolHandler is Test {
     }
 
     function _t(uint256 seed) internal view returns (address) {
-        return seed % 2 == 0 ? address(usdc) : address(eurc);
+        uint256 i = seed % 3;
+        return i == 0 ? address(usdc) : (i == 1 ? address(eurc) : address(cirbtc));
+    }
+
+    /// @dev cirBTC has 8 decimals and trades ~1e5x higher, so its amounts are bounded 1000x tighter.
+    function _amt(address t, uint256 amount) internal view returns (uint256) {
+        return t == address(cirbtc) ? bound(amount, 1, 1e9) : bound(amount, 1, 1e12);
     }
 
     function deposit(uint256 who, uint256 asset, uint256 amount) external {
-        amount = bound(amount, 1, 1e12);
         address t = _t(asset);
+        amount = _amt(t, amount);
         vm.prank(_a(who));
         try pool.deposit(t, amount) {} catch {}
     }
 
     function withdraw(uint256 who, uint256 asset, uint256 amount, bool all) external {
-        amount = all ? type(uint256).max : bound(amount, 1, 1e12);
         address t = _t(asset);
+        amount = all ? type(uint256).max : _amt(t, amount);
         vm.prank(_a(who));
         try pool.withdraw(t, amount) {} catch {}
     }
 
     function borrow(uint256 who, uint256 asset, uint256 amount) external {
-        amount = bound(amount, 1, 1e12);
         address t = _t(asset);
+        amount = _amt(t, amount);
         vm.prank(_a(who));
         try pool.borrow(t, amount) {} catch {}
     }
 
     function repay(uint256 who, uint256 asset, uint256 amount, bool all) external {
-        amount = all ? type(uint256).max : bound(amount, 1, 1e12);
         address t = _t(asset);
+        amount = all ? type(uint256).max : _amt(t, amount);
         vm.prank(_a(who));
         try pool.repay(t, amount) {} catch {}
     }
 
     function liquidate(uint256 who, uint256 victim, uint256 asset, uint256 amount) external {
-        amount = bound(amount, 1, 1e12);
         address debtAsset = _t(asset);
-        address colAsset = _t(asset + 1);
+        address colAsset = _t(asset + 1 + (amount % 2)); // both other assets, never the same one
+        amount = _amt(debtAsset, amount);
         address v = _a(victim);
         vm.prank(_a(who));
         try pool.liquidate(v, debtAsset, colAsset, amount) {} catch {}
@@ -90,6 +102,16 @@ contract OrynPoolHandler is Test {
         vm.warp(block.timestamp + secs);
         _push(pool.eurUsdPrice());
         usdcFeed.setRound(int256(pool.usdcUsdPrice()), block.timestamp);
+        btcFeed.setRound(int256(pool.btcUsdPrice()), block.timestamp);
+    }
+
+    /// @dev BTC/USD moves between 30k and 250k so cirBTC-collateral positions go underwater and recover.
+    function moveBtcPrice(uint256 pct) external {
+        pct = bound(pct, 40, 160);
+        uint256 p = pool.btcUsdPrice() * pct / 100;
+        if (p < 30_000e8) p = 30_000e8;
+        if (p > 250_000e8) p = 250_000e8;
+        btcFeed.setRound(int256(p), block.timestamp);
     }
 
     /// @dev USDC depegs/repegs within 0.85..1.05 so liquidations driven by USDC price are explored.
@@ -112,8 +134,9 @@ contract OrynPoolHandler is Test {
     }
 
     function donate(uint256 asset, uint256 amount) external {
-        amount = bound(amount, 1, 1e9);
-        MockERC20(_t(asset)).mint(address(pool), amount);
+        address t = _t(asset);
+        amount = t == address(cirbtc) ? bound(amount, 1, 1e6) : bound(amount, 1, 1e9);
+        MockERC20(t).mint(address(pool), amount);
     }
 }
 
@@ -122,7 +145,7 @@ contract OrynPoolInvariantTest is OrynPoolTestBase {
 
     function setUp() public override {
         super.setUp();
-        handler = new OrynPoolHandler(pool, usdc, eurc, feed, usdcFeed, updater);
+        handler = new OrynPoolHandler(pool, usdc, eurc, cirbtc, feed, usdcFeed, btcFeed, updater);
         targetContract(address(handler));
     }
 
@@ -154,5 +177,9 @@ contract OrynPoolInvariantTest is OrynPoolTestBase {
 
     function invariant_CashPlusBorrowedCoversSupplied_EURC() public view {
         _check(eurc);
+    }
+
+    function invariant_CashPlusBorrowedCoversSupplied_cirBTC() public view {
+        _check(cirbtc);
     }
 }

@@ -1,13 +1,20 @@
 {
-  "contractAddress": "0x0fbd3b837e062f1f4d8f70c7952b8384e4816ab3",
+  "contractAddress": "0x84b8d4ba692aa57250c0bd99d8080529fd81825e",
   "network": "ARC-TESTNET",
   "deployerWalletId": "3c2464b2-8369-52e2-a782-800bbeca5396",
   "contract_code_path": "/home/user/app/contracts/OrynPool.sol",
   "contract_compiled_code_path": "/home/user/app/contracts/out/OrynPool.sol/OrynPool.json",
   "contract_network_and_links": {
-    "Arc Testnet": "https://explorer.testnet.arc.io/address/0x0fbd3b837e062f1f4d8f70c7952b8384e4816ab3"
+    "Arc Testnet": "https://explorer.testnet.arc.io/address/0x84b8d4ba692aa57250c0bd99d8080529fd81825e"
   },
   "contract_deployments": [
+    {
+      "chain": "Arc Testnet",
+      "address": "0x84b8d4ba692aa57250c0bd99d8080529fd81825e",
+      "explorerUrl": "https://explorer.testnet.arc.io/address/0x84b8d4ba692aa57250c0bd99d8080529fd81825e",
+      "txHash": "0x85b58f2838d6338fa182d11c2bfd8874e382f87012e4ee9788443320efa57b6d",
+      "deployedAt": "2026-11-15T16:19:16.128Z"
+    },
     {
       "chain": "Arc Testnet",
       "address": "0x0fbd3b837e062f1f4d8f70c7952b8384e4816ab3",
@@ -43,6 +50,11 @@
           "internalType": "address"
         },
         {
+          "name": "cirBtc",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
           "name": "usdcUsdFeed_",
           "type": "address",
           "internalType": "address"
@@ -51,22 +63,14 @@
           "name": "eurcUsdFeed_",
           "type": "address",
           "internalType": "address"
+        },
+        {
+          "name": "btcUsdFeed_",
+          "type": "address",
+          "internalType": "address"
         }
       ],
       "stateMutability": "nonpayable"
-    },
-    {
-      "type": "function",
-      "name": "ASSET_UNIT",
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "",
-          "type": "uint256",
-          "internalType": "uint256"
-        }
-      ],
-      "stateMutability": "view"
     },
     {
       "type": "function",
@@ -90,6 +94,19 @@
           "name": "",
           "type": "uint256",
           "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "CIRBTC",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
         }
       ],
       "stateMutability": "view"
@@ -297,6 +314,11 @@
           "name": "eurc",
           "type": "address",
           "internalType": "address"
+        },
+        {
+          "name": "cirBtc",
+          "type": "address",
+          "internalType": "address"
         }
       ],
       "stateMutability": "view"
@@ -340,6 +362,58 @@
     },
     {
       "type": "function",
+      "name": "btcFeedDecimals",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint8",
+          "internalType": "uint8"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "btcPriceUpdatedAt",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "btcUsdFeed",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "contract AggregatorV3Interface"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "btcUsdPrice",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "cancelPendingRiskParams",
       "inputs": [
         {
@@ -350,6 +424,19 @@
       ],
       "outputs": [],
       "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "cirBtcUnit",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
     },
     {
       "type": "function",
@@ -419,6 +506,19 @@
     {
       "type": "function",
       "name": "eurUsdPrice",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "eurcUnit",
       "inputs": [],
       "outputs": [
         {
@@ -511,8 +611,8 @@
             },
             {
               "name": "maxBorrow",
-              "type": "uint256[2]",
-              "internalType": "uint256[2]"
+              "type": "uint256[3]",
+              "internalType": "uint256[3]"
             }
           ]
         }
@@ -728,13 +828,13 @@
           "components": [
             {
               "name": "supplyBalances",
-              "type": "uint256[2]",
-              "internalType": "uint256[2]"
+              "type": "uint256[3]",
+              "internalType": "uint256[3]"
             },
             {
               "name": "debtBalances",
-              "type": "uint256[2]",
-              "internalType": "uint256[2]"
+              "type": "uint256[3]",
+              "internalType": "uint256[3]"
             },
             {
               "name": "totalSupplyValueUsd",
@@ -1267,6 +1367,19 @@
     {
       "type": "function",
       "name": "usdcPriceUpdatedAt",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "usdcUnit",
       "inputs": [],
       "outputs": [
         {
@@ -1972,6 +2085,22 @@
     },
     {
       "type": "error",
+      "name": "UnsupportedDecimals",
+      "inputs": [
+        {
+          "name": "asset",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "decimals",
+          "type": "uint8",
+          "internalType": "uint8"
+        }
+      ]
+    },
+    {
+      "type": "error",
       "name": "UnsupportedTokenBehavior",
       "inputs": []
     },
@@ -1983,6 +2112,11 @@
     {
       "type": "error",
       "name": "ZeroAmount",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "ZeroSeizure",
       "inputs": []
     },
     {

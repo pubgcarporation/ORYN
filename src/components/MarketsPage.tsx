@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { ASSET_LIST, fmtApr, fmtBps, fmtToken, fmtUsd8, valueUsd8, type AssetInfo } from '@/lib/pool'
+import { ASSET_LIST, fmtApr, fmtAsset, fmtBps, fmtUsd8, valueUsd8, type AssetInfo } from '@/lib/pool'
 import type { PoolState, UserState } from '@/hooks/usePool'
 import { ActionSheet, type ActionKind } from '@/components/ActionSheet'
 import { BorrowSimulator } from '@/components/BorrowSimulator'
 import { OracleCard } from '@/components/OracleCard'
 import { RateCurve } from '@/components/RateCurve'
 import { FundWallet, PageTitle, Skeleton, Stat, TokenBadge } from '@/components/ui'
+import { Info } from 'lucide-react'
 
 interface Props {
   mode: 'lend' | 'borrow'
@@ -19,23 +20,29 @@ export function MarketsPage({ mode, pool, user }: Props) {
 
   const totalUsd = ASSET_LIST.reduce((sum, a) => {
     const r = pool.reserves[a.symbol]
-    return sum + valueUsd8(lend ? r.totalSupplied : r.totalBorrowed, a.symbol, pool.eurc8)
+    return sum + valueUsd8(lend ? r.totalSupplied : r.totalBorrowed, a.symbol, pool.prices)
   }, 0n)
   const liquidityUsd = ASSET_LIST.reduce(
-    (sum, a) => sum + valueUsd8(pool.reserves[a.symbol].availableLiquidity, a.symbol, pool.eurc8),
+    (sum, a) => sum + valueUsd8(pool.reserves[a.symbol].availableLiquidity, a.symbol, pool.prices),
     0n,
   )
 
   return (
     <div>
-      <PageTitle title={lend ? 'Earn on stablecoins' : 'Borrow against your deposits'}>
+      <PageTitle title={lend ? 'Earn on your assets' : 'Borrow against your deposits'}>
         {lend
-          ? 'Supply USDC or EURC to earn interest from borrowers. Every deposit also counts as collateral.'
-          : 'Borrow USDC or EURC against what you have supplied. Keep your health factor above 1 to avoid liquidation.'}
+          ? 'Supply USDC, EURC or cirBTC to earn interest from borrowers. Every deposit also counts as collateral.'
+          : 'Borrow USDC, EURC or cirBTC against what you have supplied. Keep your health factor above 1 to avoid liquidation.'}
       </PageTitle>
 
-      {lend && user.address && user.loaded && user.assets.USDC.walletBalance === 0n && user.assets.EURC.walletBalance === 0n && (
+      {lend && user.address && user.loaded && user.assets.USDC.walletBalance === 0n && user.assets.EURC.walletBalance === 0n && user.assets.cirBTC.walletBalance === 0n && (
         <FundWallet address={user.address} />
+      )}
+      {lend && user.address && user.loaded && user.assets.cirBTC.walletBalance === 0n && (
+        <p className="mb-4 flex items-start gap-2 text-xs" style={{ color: 'var(--subtle)' }}>
+          <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+          <span>cirBTC has no public faucet yet, so you can only supply it with a balance sent from a wallet that already holds some.</span>
+        </p>
       )}
 
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -49,7 +56,7 @@ export function MarketsPage({ mode, pool, user }: Props) {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {ASSET_LIST.map((asset) => {
           const r = pool.reserves[asset.symbol]
           const total = lend ? r.totalSupplied : r.totalBorrowed
@@ -77,8 +84,10 @@ export function MarketsPage({ mode, pool, user }: Props) {
               </div>
 
               <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-                <Item label={lend ? 'Total deposits' : 'Total borrowed'} value={`${fmtToken(total, asset.decimals)} ${asset.symbol}`} />
-                <Item label="Available" value={`${fmtToken(r.availableLiquidity, asset.decimals)} ${asset.symbol}`} />
+                <Item label={lend ? 'Total deposits' : 'Total borrowed'} value={`${fmtAsset(total, asset.symbol)} ${asset.symbol}`} />
+                <Item label="Available" value={`${fmtAsset(r.availableLiquidity, asset.symbol)} ${asset.symbol}`} />
+                <Item label="Chainlink price" value={pool.loaded ? fmtUsd8(pool.prices[asset.symbol], asset.symbol === 'cirBTC' ? 0 : 4) : '...'} />
+                <Item label="Liquidation bonus" value={pool.loaded ? fmtBps(r.liquidationBonus) : '...'} />
                 <div className="col-span-2">
                   <div className="mb-1 flex justify-between">
                     <dt className="label">Utilization</dt>
@@ -97,7 +106,7 @@ export function MarketsPage({ mode, pool, user }: Props) {
                 <div className="inner mt-4 flex items-center justify-between px-4 py-3 text-sm">
                   <span style={{ color: 'var(--muted)' }}>{lend ? 'You supplied' : 'You owe'}</span>
                   <span className="num font-semibold">
-                    {fmtToken(mine, asset.decimals)} {asset.symbol}
+                    {fmtAsset(mine, asset.symbol)} {asset.symbol}
                   </span>
                 </div>
               )}

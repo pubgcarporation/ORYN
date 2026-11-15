@@ -6,17 +6,20 @@ import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {AggregatorV3Interface} from "./interfaces/AggregatorV3Interface.sol";
 
 /**
  * @title OrynPool
- * @notice Two-reserve, cross-collateral money market intended for Arc Testnet (5042002).
- * @dev Both immutable assets MUST have 6 decimals; decimals() is deliberately never called.
- * Expected testnet assets: USDC 0x3600000000000000000000000000000000000000 and
- * EURC 0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a. Addresses are constructor inputs.
- * USDC/USD and EURC/USD are read from their immutable Chainlink-compatible AggregatorV3 feeds.
+ * @notice Three-reserve, cross-collateral money market intended for Arc Testnet (5042002).
+ * @dev Immutable USDC, EURC and cirBTC use per-asset decimals (at most 18), read once at construction.
+ * Expected testnet assets: USDC 0x3600000000000000000000000000000000000000,
+ * EURC 0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a and
+ * cirBTC 0xf0C4a4CE82A5746AbAAd9425360Ab04fbBA432BF (8 decimals).
+ * Addresses are constructor inputs. All USD prices are read from immutable
+ * Chainlink-compatible AggregatorV3 feeds: USDC/USD, EURC/USD and BTC/USD.
  * On Arc Testnet the EURC feed is a testnet-only mirror of the Arc mainnet Chainlink EURC/USD
  * answer (proxy 0x361b95c10b76Ca3f35C686d423e43A951755Bf23, 8 decimals, 24h heartbeat),
  * preserving Chainlink's original update timestamp rather than the relay timestamp.
@@ -35,7 +38,7 @@ import {AggregatorV3Interface} from "./interfaces/AggregatorV3Interface.sol";
  * outstanding, may earn unrealizable interest, and can prevent suppliers from exiting.
  * Accounting deficits revert explicitly rather than underflowing. Rebasing and tokens
  * charging transfer fees are unsupported: incoming receipts must equal the requested
- * amount. The configured USDC and EURC must be standard six-decimal ERC-20 tokens.
+ * amount. All three configured assets must be standard ERC-20 tokens.
  */
 contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -45,7 +48,6 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
     uint256 public constant WAD = 1e18;
     uint256 public constant BPS = 10_000;
     uint256 public constant YEAR = 365 days;
-    uint256 public constant ASSET_UNIT = 1e6;
     uint256 public constant CLOSE_FACTOR = 5_000;
     uint256 public constant RESERVE_FACTOR = 1_000;
     uint256 public constant OPTIMAL_UTILIZATION = 0.8e18;
@@ -57,10 +59,16 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
 
     address public immutable USDC;
     address public immutable EURC;
+    address public immutable CIRBTC;
+    uint256 public immutable usdcUnit;
+    uint256 public immutable eurcUnit;
+    uint256 public immutable cirBtcUnit;
     AggregatorV3Interface public immutable usdcUsdFeed;
     AggregatorV3Interface public immutable eurcUsdFeed;
+    AggregatorV3Interface public immutable btcUsdFeed;
     uint8 public immutable usdcFeedDecimals;
     uint8 public immutable feedDecimals;
+    uint8 public immutable btcFeedDecimals;
     uint256 public maxPriceAge = 2 days;
 
     struct Reserve {
@@ -117,7 +125,7 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
         uint256 liquidationValue;
     }
 
-    /// @notice Amounts use 6 decimals, USD values 8, APR and health factors 18.
+    /// @notice Amounts use each token's decimals, USD values 8, APR and health factors 18.
     struct MarketData {
         uint256 totalSupply;
         uint256 totalBorrows;
@@ -131,10 +139,10 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
         uint256 liquidationThresholdBps;
     }
 
-    /// @dev Arrays always use index 0 = USDC, 1 = EURC. Totals are USD, not mixed currencies.
+    /// @dev Arrays use index 0 = USDC, 1 = EURC, 2 = cirBTC. Totals are USD, not mixed currencies.
     struct UserPosition {
-        uint256[2] supplyBalances;
-        uint256[2] debtBalances;
+        uint256[3] supplyBalances;
+        uint256[3] debtBalances;
         uint256 totalSupplyValueUsd;
         uint256 totalDebtValueUsd;
     }
@@ -145,13 +153,32 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
         uint256 borrowLimitUsd;
         uint256 liquidationLimitUsd;
         uint256 healthFactorWad;
-        uint256[2] maxBorrow;
+        uint256[3] maxBorrow;
     }
 
     struct LiquidationQuote {
         uint256 collateralShares;
         uint256 collateral;
         uint256 maximumRepay;
+        uint256 seizureNumerator;
+        uint256 seizureDenominator;
+    }
+
+    struct BorrowContext {
+        uint256 oldShares;
+        uint256 price;
+        uint256 unit;
+        uint256 budget;
+        uint256 high;
+    }
+
+    struct WithdrawalContext {
+        uint256 shares;
+        uint256 balance;
+        uint256 supplyIndex;
+        uint256 ltv;
+        uint256 price;
+        uint256 requiredCapacity;
     }
 
     mapping(address asset => Reserve) private _reserves;
@@ -162,8 +189,10 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
     error ZeroAddress();
     error IdenticalAssets();
     error UnsupportedAsset(address asset);
+    error UnsupportedDecimals(address asset, uint8 decimals);
     error ZeroAmount();
     error ZeroShares();
+    error ZeroSeizure();
     error InvalidRiskParams();
     error NoPendingRiskParams();
     error RiskParamsNotReady();
@@ -202,43 +231,63 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
     event UnrelatedTokenRescued(address indexed token, address indexed to, uint256 amount);
 
     /// @param initialOwner Owner using two-step ownership transfers.
-    /// @param usdc Six-decimal USDC; market index zero.
-    /// @param eurc Six-decimal EURC; market index one.
+    /// @param usdc USDC; market index zero.
+    /// @param eurc EURC; market index one.
+    /// @param cirBtc Circle wrapped Bitcoin; market index two.
     /// @param usdcUsdFeed_ Chainlink-compatible USDC/USD feed.
     /// @param eurcUsdFeed_ Chainlink-compatible EURC/USD feed; use a mirror on Arc Testnet.
-    /// @dev Reads only feed decimals at construction; initial rounds are not required.
-    constructor(address initialOwner, address usdc, address eurc, address usdcUsdFeed_, address eurcUsdFeed_)
+    /// @param btcUsdFeed_ Chainlink-compatible BTC/USD feed.
+    /// @dev Reads each token's decimals once and feed decimals; initial rounds are not required.
+    constructor(address initialOwner, address usdc, address eurc, address cirBtc,
+        address usdcUsdFeed_, address eurcUsdFeed_, address btcUsdFeed_)
         Ownable(initialOwner)
     {
-        if (usdc == address(0) || eurc == address(0) || initialOwner == address(0)
-            || usdcUsdFeed_ == address(0) || eurcUsdFeed_ == address(0)) revert ZeroAddress();
-        if (usdc == eurc) revert IdenticalAssets();
+        if (usdc == address(0) || eurc == address(0) || cirBtc == address(0) || initialOwner == address(0)
+            || usdcUsdFeed_ == address(0) || eurcUsdFeed_ == address(0) || btcUsdFeed_ == address(0)) {
+            revert ZeroAddress();
+        }
+        if (usdc == eurc || usdc == cirBtc || eurc == cirBtc) revert IdenticalAssets();
         USDC = usdc;
         EURC = eurc;
+        CIRBTC = cirBtc;
+        usdcUnit = _readUnit(usdc);
+        eurcUnit = _readUnit(eurc);
+        cirBtcUnit = _readUnit(cirBtc);
         usdcUsdFeed = AggregatorV3Interface(usdcUsdFeed_);
         eurcUsdFeed = AggregatorV3Interface(eurcUsdFeed_);
-        uint8 usdcDecimals_ = AggregatorV3Interface(usdcUsdFeed_).decimals();
-        uint8 decimals_ = AggregatorV3Interface(eurcUsdFeed_).decimals();
-        if (usdcDecimals_ > 18 || decimals_ > 18) revert InvalidPrice();
-        usdcFeedDecimals = usdcDecimals_;
-        feedDecimals = decimals_;
-        _initialize(usdc, 8_000, 8_500);
-        _initialize(eurc, 7_500, 8_000);
+        btcUsdFeed = AggregatorV3Interface(btcUsdFeed_);
+        uint8[3] memory decimals_;
+        decimals_[0] = AggregatorV3Interface(usdcUsdFeed_).decimals();
+        decimals_[1] = AggregatorV3Interface(eurcUsdFeed_).decimals();
+        decimals_[2] = AggregatorV3Interface(btcUsdFeed_).decimals();
+        if (decimals_[0] > 18 || decimals_[1] > 18 || decimals_[2] > 18) revert InvalidPrice();
+        usdcFeedDecimals = decimals_[0];
+        feedDecimals = decimals_[1];
+        btcFeedDecimals = decimals_[2];
+        _initialize(usdc, 8_000, 8_500, 500);
+        _initialize(eurc, 7_500, 8_000, 500);
+        _initialize(cirBtc, 7_000, 7_500, 800);
     }
 
-    function _initialize(address asset, uint256 ltv, uint256 threshold) private {
-        _validateRiskParams(ltv, threshold, 500);
+    function _readUnit(address asset) private view returns (uint256) {
+        uint8 decimals_ = IERC20Metadata(asset).decimals();
+        if (decimals_ > 18) revert UnsupportedDecimals(asset, decimals_);
+        return 10 ** uint256(decimals_);
+    }
+
+    function _initialize(address asset, uint256 ltv, uint256 threshold, uint256 bonus) private {
+        _validateRiskParams(ltv, threshold, bonus);
         Reserve storage r = _reserves[asset];
         r.supplyIndex = RAY;
         r.borrowIndex = RAY;
         r.lastUpdate = block.timestamp;
         r.ltv = ltv;
         r.liquidationThreshold = threshold;
-        r.liquidationBonus = 500;
-        emit ParamsUpdated(asset, ltv, threshold, 500, 0, 0);
+        r.liquidationBonus = bonus;
+        emit ParamsUpdated(asset, ltv, threshold, bonus, 0, 0);
     }
 
-    /// @notice Deposits automatically collateralize both markets. Deposits stay open while paused so
+    /// @notice Deposits automatically collateralize all three markets. Deposits stay open while paused so
     ///         borrowers can top up collateral; only new borrowing is frozen by the pause.
     function deposit(address asset, uint256 amount) external nonReentrant {
         _requireAsset(asset);
@@ -328,8 +377,8 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
         if (a.debt == 0 || a.debt <= a.liquidationValue) revert NotLiquidatable();
         LiquidationQuote memory q = _liquidationQuote(borrower, debtAsset, collateralAsset);
         uint256 applied = _repay(debtAsset, borrower, Math.min(repayAmount, q.maximumRepay));
-        uint256 seized = _up(applied, _price(debtAsset), _price(collateralAsset));
-        seized = _up(seized, BPS + _reserves[collateralAsset].liquidationBonus, BPS);
+        uint256 seized = Math.mulDiv(applied, q.seizureNumerator, q.seizureDenominator);
+        if (seized == 0) revert ZeroSeizure();
         bool paidUnderlying = _applyLiquidationCollateral(borrower, collateralAsset, seized, q);
         emit Liquidation(msg.sender, borrower, debtAsset, collateralAsset, applied, seized, paidUnderlying);
     }
@@ -341,11 +390,68 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
         q.collateralShares = scaledSupplyOf[collateralAsset][borrower];
         q.collateral = Math.mulDiv(q.collateralShares, c.supplyIndex, RAY);
         if (q.collateral == 0) revert InsufficientSupply();
-        // Invert both upward-rounded seizure steps, so even partial seizure fits.
-        q.maximumRepay = Math.mulDiv(q.collateral, BPS, BPS + c.liquidationBonus);
-        q.maximumRepay = Math.mulDiv(q.maximumRepay, _price(collateralAsset), _price(debtAsset));
+        // These constant factors fit uint256 for supported prices (<= ~1e16),
+        // token units (<= 1e18) and bonuses (<= 1_000). No division rounds them.
+        q.seizureNumerator = _price(debtAsset) * _unit(collateralAsset) * (BPS + c.liquidationBonus);
+        q.seizureDenominator = _price(collateralAsset) * _unit(debtAsset) * BPS;
         uint256 debt = _up(scaledDebtOf[debtAsset][borrower], _reserves[debtAsset].borrowIndex, RAY);
-        q.maximumRepay = Math.min(q.maximumRepay, Math.mulDiv(debt, CLOSE_FACTOR, BPS));
+        q.maximumRepay = _maximumLiquidationRepay(q, Math.mulDiv(debt, CLOSE_FACTOR, BPS));
+    }
+
+    /// @dev Largest x <= closeLimit with floor(x * numerator / denominator) <= collateral.
+    /// Invert the strict bound x * numerator < (collateral + 1) * denominator.
+    function _maximumLiquidationRepay(LiquidationQuote memory q, uint256 closeLimit)
+        private pure returns (uint256)
+    {
+        uint256 numerator = q.seizureNumerator;
+        uint256 denominator = q.seizureDenominator;
+        // When numerator <= denominator this forward result cannot overflow. If
+        // it does not fit, the inverse below is strictly less than closeLimit.
+        if (numerator <= denominator
+            && Math.mulDiv(closeLimit, numerator, denominator) <= q.collateral) return closeLimit;
+        uint256 limit = Math.mulDiv(q.collateral, denominator, numerator);
+        // Split (collateral + 1) * denominator without overflowing collateral + 1.
+        // Only constant-sized remainders are added; their sum fits supported ranges.
+        uint256 tail = mulmod(q.collateral, denominator, numerator) + denominator;
+        limit += tail / numerator;
+        // The inverse bound is strict: an exact boundary needs one downward step.
+        if (tail % numerator == 0) limit -= 1;
+        return Math.min(limit, closeLimit);
+    }
+
+    /// @dev Token units are powers of ten, so cancel them before the full-precision mulDiv.
+    /// A single rounding step preserves the exact inverse used by maximumRepay.
+    function _convertAssetAmount(uint256 amount, address fromAsset, address toAsset, Math.Rounding rounding)
+        private view returns (uint256)
+    {
+        uint256 fromUnit = _unit(fromAsset);
+        uint256 toUnit = _unit(toAsset);
+        uint256 fromPrice = _price(fromAsset);
+        uint256 toPrice = _price(toAsset);
+        if (toUnit >= fromUnit) {
+            uint256 scale = toUnit / fromUnit;
+            uint256 quotient = Math.mulDiv(amount, fromPrice, toPrice);
+            uint256 remainder = mulmod(amount, fromPrice, toPrice);
+            return quotient * scale + Math.mulDiv(remainder, scale, toPrice, rounding);
+        }
+        return _mulDivScaleDown(amount, fromPrice, toPrice, fromUnit / toUnit, rounding);
+    }
+
+    /// @dev Exact amount * price / (denominator * scale), without multiplying the denominator.
+    /// Scale is a token-unit ratio, at most 1e18; tail is therefore at most 2e18 - 2.
+    function _mulDivScaleDown(uint256 amount, uint256 price, uint256 denominator, uint256 scale,
+        Math.Rounding rounding) private pure returns (uint256 result)
+    {
+        uint256 whole = amount / denominator;
+        uint256 remainder = amount % denominator;
+        result = Math.mulDiv(whole, price, scale);
+        uint256 fractional = Math.mulDiv(remainder, price, denominator);
+        uint256 tail = mulmod(whole, price, scale) + fractional % scale;
+        result += fractional / scale + tail / scale;
+        if (rounding == Math.Rounding.Ceil
+            && (tail % scale != 0 || mulmod(remainder, price, denominator) != 0)) {
+            result += 1;
+        }
     }
 
     function _applyLiquidationCollateral(address borrower, address collateralAsset, uint256 seized,
@@ -359,6 +465,7 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
         } else {
             // Round transferred claims down so the liquidator receives no excess supply claim.
             shares = Math.mulDiv(seized, RAY, c.supplyIndex);
+            if (shares == 0) revert ZeroSeizure();
         }
         if (shares > q.collateralShares) revert InsufficientSupply();
         scaledSupplyOf[collateralAsset][borrower] = q.collateralShares - shares;
@@ -393,7 +500,7 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
     }
 
     /// @notice Applies an asset's queued risk parameters after the delay and within 3 days of its ETA.
-    /// @dev Accrues both markets before updating the reserve and clears the applied proposal.
+    /// @dev Accrues all three markets before updating the reserve and clears the applied proposal.
     function applyPendingRiskParams(address asset) external onlyOwner nonReentrant {
         PendingRiskParams memory pending = _pendingRiskParams[asset];
         if (pending.eta == 0) revert NoPendingRiskParams();
@@ -457,7 +564,7 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
         emit ReservesCollected(asset, to, amount);
     }
 
-    /// @notice Initiates a two-step transfer, accruing both markets first.
+    /// @notice Initiates a two-step transfer, accruing all three markets first.
     function transferOwnership(address newOwner) public override onlyOwner nonReentrant {
         if (newOwner == address(0)) revert ZeroAddress();
         _accrueAll();
@@ -494,10 +601,10 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
         _accrue(token);
     }
 
-    /// @notice Rescues only tokens unrelated to the two immutable markets.
+    /// @notice Rescues only tokens unrelated to the three immutable markets.
     function rescueToken(address token, address to, uint256 amount) external onlyOwner nonReentrant {
         if (token == address(0) || to == address(0)) revert ZeroAddress();
-        if (token == USDC || token == EURC || to == address(this)) revert InvalidRecipient();
+        if (token == USDC || token == EURC || token == CIRBTC || to == address(this)) revert InvalidRecipient();
         if (amount == 0) revert ZeroAmount();
         _accrueAll();
         IERC20(token).safeTransfer(to, amount);
@@ -518,6 +625,19 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
         return price8;
     }
 
+    /// @notice Returns the current eight-decimal BTC/USD quote, even if stale.
+    function btcUsdPrice() public view returns (uint256) {
+        (bool valid, uint256 price8,) = _readFeed(btcUsdFeed, btcFeedDecimals);
+        if (!valid) revert InvalidPrice();
+        return price8;
+    }
+
+    /// @notice Returns the BTC source timestamp, or zero if its round cannot be read.
+    function btcPriceUpdatedAt() public view returns (uint256) {
+        (,, uint256 updatedAt) = _readFeed(btcUsdFeed, btcFeedDecimals);
+        return updatedAt;
+    }
+
     /// @notice Compatibility alias for eurUsdPrice(); indicative even if stale.
     function eurcUsdPrice() external view returns (uint256) {
         return eurUsdPrice();
@@ -529,18 +649,17 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
         return updatedAt;
     }
 
-    /// @notice Returns the older source timestamp, or zero if either round cannot be read.
+    /// @notice Returns the oldest source timestamp, or zero if any round cannot be read.
     function priceUpdatedAt() public view returns (uint256) {
-        (,, uint256 usdcUpdatedAt) = _readFeed(usdcUsdFeed, usdcFeedDecimals);
-        (,, uint256 eurcUpdatedAt) = _readFeed(eurcUsdFeed, feedDecimals);
-        return Math.min(usdcUpdatedAt, eurcUpdatedAt);
+        (, uint256 oldestUpdatedAt) = _priceFreshness();
+        return oldestUpdatedAt;
     }
 
     function priceFeed() external view returns (address) {
         return address(eurcUsdFeed);
     }
 
-    /// @notice Indicates whether both configured feed quotes are fresh for risk-increasing actions.
+    /// @notice Indicates whether all three configured feed quotes are fresh for risk-increasing actions.
     function isPriceFresh() external view returns (bool) {
         return !_isStale();
     }
@@ -561,21 +680,21 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
         d.liquidationThresholdBps = r.liquidationThreshold;
     }
 
-    /// @notice Balances include pending interest; arrays use USDC then EURC.
+    /// @notice Balances include pending interest; arrays use USDC, EURC, then cirBTC.
     /// @dev USD totals are indicative when the oracle is stale.
     function getUserPosition(address user) external view returns (UserPosition memory p) {
         if (user == address(0)) revert ZeroAddress();
-        for (uint256 i; i < 2; ++i) {
-            address token = i == 0 ? USDC : EURC;
+        for (uint256 i; i < 3; ++i) {
+            address token = _assetAt(i);
             Snapshot memory s = _preview(token);
             p.supplyBalances[i] = Math.mulDiv(scaledSupplyOf[token][user], s.supplyIndex, RAY);
             p.debtBalances[i] = _up(scaledDebtOf[token][user], s.borrowIndex, RAY);
-            p.totalSupplyValueUsd += Math.mulDiv(p.supplyBalances[i], _price(token), ASSET_UNIT);
-            p.totalDebtValueUsd += _up(p.debtBalances[i], _price(token), ASSET_UNIT);
+            p.totalSupplyValueUsd += Math.mulDiv(p.supplyBalances[i], _price(token), _unit(token));
+            p.totalDebtValueUsd += _up(p.debtBalances[i], _price(token), _unit(token));
         }
     }
 
-    /// @notice USD totals use eight decimals; maxBorrow uses six-decimal token units.
+    /// @notice USD totals use eight decimals; maxBorrow uses each token's native units.
     /// @dev Health uses liquidation thresholds; borrow limits use collateral factors.
     function getAccountData(address user) external view returns (AccountData memory d) {
         if (user == address(0)) revert ZeroAddress();
@@ -585,8 +704,9 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
         d.borrowLimitUsd = a.capacity;
         d.liquidationLimitUsd = a.liquidationValue;
         d.healthFactorWad = a.debt == 0 ? type(uint256).max : Math.mulDiv(a.liquidationValue, WAD, a.debt);
-        d.maxBorrow[0] = maxBorrowable(USDC, user);
-        d.maxBorrow[1] = maxBorrowable(EURC, user);
+        for (uint256 i; i < 3; ++i) {
+            d.maxBorrow[i] = maxBorrowable(_assetAt(i), user);
+        }
     }
 
     /// @notice Simulates exact debt rounding for an additional borrow, without changing state.
@@ -600,14 +720,14 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
         Snapshot memory s = _preview(token);
         Account memory a = _previewAccount(user);
         uint256 shares = scaledDebtOf[token][user];
-        uint256 debtAfter = a.debt - _debtValue(shares, s.borrowIndex, _price(token))
-            + _debtValue(shares + _up(amount, RAY, s.borrowIndex), s.borrowIndex, _price(token));
+        uint256 debtAfter = a.debt - _debtValue(shares, s.borrowIndex, _price(token), _unit(token))
+            + _debtValue(shares + _up(amount, RAY, s.borrowIndex), s.borrowIndex, _price(token), _unit(token));
         healthFactorAfterWad = debtAfter == 0 ? type(uint256).max : Math.mulDiv(a.liquidationValue, WAD, debtAfter);
         withinBorrowLimit = debtAfter <= a.capacity;
     }
 
-    function assets() external view returns (address usdc, address eurc) {
-        return (USDC, EURC);
+    function assets() external view returns (address usdc, address eurc, address cirBtc) {
+        return (USDC, EURC, CIRBTC);
     }
 
     function priceOf(address asset) external view returns (uint256 price8) {
@@ -661,9 +781,7 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
     function getUserAccount(address user) external view returns (uint256 collateralValueUsd8,
         uint256 debtValueUsd8, uint256 borrowCapacityUsd8, uint256 liquidationValueUsd8, uint256 healthFactorWad)
     {
-        Snapshot memory u = _preview(USDC);
-        Snapshot memory e = _preview(EURC);
-        Account memory a = _account(user, u.supplyIndex, u.borrowIndex, e.supplyIndex, e.borrowIndex);
+        Account memory a = _previewAccount(user);
         return (a.collateral, a.debt, a.capacity, a.liquidationValue,
             a.debt == 0 ? type(uint256).max : Math.mulDiv(a.liquidationValue, WAD, a.debt));
     }
@@ -673,51 +791,69 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
         _requireAsset(asset);
         if (paused() || _isStale()) return 0;
         Snapshot memory s = _preview(asset);
-        Account memory a = _previewAccount(user);
-        if (a.debt >= a.capacity) return 0;
-        uint256 oldShares = scaledDebtOf[asset][user];
-        uint256 price = _price(asset);
-        uint256 budget = a.capacity - (a.debt - _debtValue(oldShares, s.borrowIndex, price));
-        uint256 high = s.cash;
+        BorrowContext memory c;
+        c.oldShares = scaledDebtOf[asset][user];
+        c.price = _price(asset);
+        c.unit = _unit(asset);
+        {
+            Account memory a = _previewAccount(user);
+            if (a.debt >= a.capacity) return 0;
+            c.budget = a.capacity - (a.debt - _debtValue(c.oldShares, s.borrowIndex, c.price, c.unit));
+        }
+        c.high = Math.min(s.cash, Math.mulDiv(c.budget, c.unit, c.price));
         Reserve storage r = _reserves[asset];
         if (r.borrowCap != 0) {
             if (s.totalBorrowed >= r.borrowCap) return 0;
-            high = Math.min(high, r.borrowCap - s.totalBorrowed);
+            c.high = Math.min(c.high, r.borrowCap - s.totalBorrowed);
         }
-        high = Math.min(high, Math.mulDiv(budget, ASSET_UNIT, price));
-        uint256 low;
-        // Monotonic binary search accounts for debt-share and USD rounding and cap dust.
+        return _borrowLimit(r, s, c);
+    }
+
+    /// @dev Monotonic binary search accounts for debt-share and USD rounding and cap dust.
+    function _borrowLimit(Reserve storage r, Snapshot memory s, BorrowContext memory c)
+        private view returns (uint256 low)
+    {
+        uint256 high = c.high;
         while (low < high) {
             uint256 mid = low + (high - low) / 2 + 1;
             uint256 added = _up(mid, RAY, s.borrowIndex);
-            bool fits = _debtValue(oldShares + added, s.borrowIndex, price) <= budget;
+            bool fits = _debtValue(c.oldShares + added, s.borrowIndex, c.price, c.unit) <= c.budget;
             if (r.borrowCap != 0 && _up(r.scaledDebt + added, s.borrowIndex, RAY) > r.borrowCap) fits = false;
             if (fits) low = mid;
             else high = mid - 1;
         }
-        return low;
     }
 
     /// @notice Includes share-burn rounding and LTV constraints; only debt-free exits bypass pause.
     function maxWithdrawable(address asset, address user) external view returns (uint256) {
         Snapshot memory s = _preview(asset);
-        uint256 shares = scaledSupplyOf[asset][user];
-        uint256 balance = Math.mulDiv(shares, s.supplyIndex, RAY);
-        uint256 high = Math.min(balance, s.cash);
+        WithdrawalContext memory w;
+        w.shares = scaledSupplyOf[asset][user];
+        w.balance = Math.mulDiv(w.shares, s.supplyIndex, RAY);
+        uint256 high = Math.min(w.balance, s.cash);
         if (!_hasDebt(user)) return high;
         if (paused() || _isStale()) return 0;
         Account memory a = _previewAccount(user);
         if (a.debt > a.capacity) return 0;
-        uint256 ltv = _reserves[asset].ltv;
-        uint256 price = _price(asset);
-        uint256 otherCapacity = a.capacity - _collateralCapacity(shares, s.supplyIndex, price, ltv);
+        w.supplyIndex = s.supplyIndex;
+        w.ltv = _reserves[asset].ltv;
+        w.price = _price(asset);
+        uint256 otherCapacity = a.capacity
+            - _collateralCapacity(w.shares, w.supplyIndex, w.price, w.ltv, _unit(asset));
         if (otherCapacity >= a.debt) return high;
-        uint256 requiredCapacity = a.debt - otherCapacity;
+        w.requiredCapacity = a.debt - otherCapacity;
+        return _withdrawalLimit(asset, w, high);
+    }
+
+    function _withdrawalLimit(address asset, WithdrawalContext memory w, uint256 high)
+        private view returns (uint256)
+    {
         uint256 low;
         while (low < high) {
             uint256 mid = low + (high - low) / 2 + 1;
-            uint256 burned = mid == balance ? shares : _up(mid, RAY, s.supplyIndex);
-            if (_collateralCapacity(shares - burned, s.supplyIndex, price, ltv) >= requiredCapacity) low = mid;
+            uint256 burned = mid == w.balance ? w.shares : _up(mid, RAY, w.supplyIndex);
+            if (_collateralCapacity(w.shares - burned, w.supplyIndex, w.price, w.ltv, _unit(asset))
+                >= w.requiredCapacity) low = mid;
             else high = mid - 1;
         }
         return low;
@@ -760,8 +896,9 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
     }
 
     function _accrueAll() private {
-        _accrue(USDC);
-        _accrue(EURC);
+        for (uint256 i; i < 3; ++i) {
+            _accrue(_assetAt(i));
+        }
     }
 
     function _syncReserves(address asset) private {
@@ -793,39 +930,45 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
     }
 
     function _previewAccount(address user) private view returns (Account memory) {
-        Snapshot memory u = _preview(USDC);
-        Snapshot memory e = _preview(EURC);
-        return _account(user, u.supplyIndex, u.borrowIndex, e.supplyIndex, e.borrowIndex);
+        return _account(user, true);
     }
 
     function _currentAccount(address user) private view returns (Account memory) {
-        return _account(user, _reserves[USDC].supplyIndex, _reserves[USDC].borrowIndex,
-            _reserves[EURC].supplyIndex, _reserves[EURC].borrowIndex);
+        return _account(user, false);
     }
 
-    function _account(address user, uint256 us, uint256 ub, uint256 es, uint256 eb)
-        private view returns (Account memory a)
-    {
-        for (uint256 i; i < 2; ++i) {
-            address asset = i == 0 ? USDC : EURC;
+    function _account(address user, bool preview) private view returns (Account memory a) {
+        for (uint256 i; i < 3; ++i) {
+            address asset = _assetAt(i);
             Reserve storage r = _reserves[asset];
-            uint256 supply = Math.mulDiv(scaledSupplyOf[asset][user], i == 0 ? us : es, RAY);
-            uint256 value = Math.mulDiv(supply, _price(asset), ASSET_UNIT);
+            uint256 supplyIndex = r.supplyIndex;
+            uint256 borrowIndex = r.borrowIndex;
+            if (preview) {
+                Snapshot memory s = _preview(asset);
+                supplyIndex = s.supplyIndex;
+                borrowIndex = s.borrowIndex;
+            }
+            uint256 price = _price(asset);
+            uint256 unit = _unit(asset);
+            uint256 supply = Math.mulDiv(scaledSupplyOf[asset][user], supplyIndex, RAY);
+            uint256 value = Math.mulDiv(supply, price, unit);
             a.collateral += value;
             a.capacity += Math.mulDiv(value, r.ltv, BPS);
             a.liquidationValue += Math.mulDiv(value, r.liquidationThreshold, BPS);
-            a.debt += _debtValue(scaledDebtOf[asset][user], i == 0 ? ub : eb, _price(asset));
+            a.debt += _debtValue(scaledDebtOf[asset][user], borrowIndex, price, unit);
         }
     }
 
-    function _debtValue(uint256 shares, uint256 index, uint256 price) private pure returns (uint256) {
-        return _up(_up(shares, index, RAY), price, ASSET_UNIT);
-    }
-
-    function _collateralCapacity(uint256 shares, uint256 index, uint256 price, uint256 ltv)
+    function _debtValue(uint256 shares, uint256 index, uint256 price, uint256 unit)
         private pure returns (uint256)
     {
-        return Math.mulDiv(Math.mulDiv(Math.mulDiv(shares, index, RAY), price, ASSET_UNIT), ltv, BPS);
+        return _up(_up(shares, index, RAY), price, unit);
+    }
+
+    function _collateralCapacity(uint256 shares, uint256 index, uint256 price, uint256 ltv, uint256 unit)
+        private pure returns (uint256)
+    {
+        return Math.mulDiv(Math.mulDiv(Math.mulDiv(shares, index, RAY), price, unit), ltv, BPS);
     }
 
     function _utilization(uint256 debt, uint256 cash) private pure returns (uint256) {
@@ -867,15 +1010,24 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
     }
 
     function _requireAsset(address asset) private view {
-        if (asset != USDC && asset != EURC) revert UnsupportedAsset(asset);
+        if (asset != USDC && asset != EURC && asset != CIRBTC) revert UnsupportedAsset(asset);
+    }
+
+    function _assetAt(uint256 i) private view returns (address) {
+        return i == 0 ? USDC : (i == 1 ? EURC : CIRBTC);
+    }
+
+    function _unit(address asset) private view returns (uint256) {
+        return asset == USDC ? usdcUnit : (asset == EURC ? eurcUnit : cirBtcUnit);
     }
 
     function _hasDebt(address user) private view returns (bool) {
-        return scaledDebtOf[USDC][user] != 0 || scaledDebtOf[EURC][user] != 0;
+        return scaledDebtOf[USDC][user] != 0 || scaledDebtOf[EURC][user] != 0
+            || scaledDebtOf[CIRBTC][user] != 0;
     }
 
     function _price(address asset) private view returns (uint256) {
-        return asset == USDC ? usdcUsdPrice() : eurUsdPrice();
+        return asset == USDC ? usdcUsdPrice() : (asset == EURC ? eurUsdPrice() : btcUsdPrice());
     }
 
     /// @dev Failed/invalid reads are reported rather than reverted so freshness views fail closed.
@@ -909,8 +1061,9 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
     function _priceFreshness() private view returns (bool fresh, uint256 oldestUpdatedAt) {
         (bool usdcValid,, uint256 usdcUpdatedAt) = _readFeed(usdcUsdFeed, usdcFeedDecimals);
         (bool eurcValid,, uint256 eurcUpdatedAt) = _readFeed(eurcUsdFeed, feedDecimals);
-        oldestUpdatedAt = Math.min(usdcUpdatedAt, eurcUpdatedAt);
-        fresh = usdcValid && eurcValid && block.timestamp - oldestUpdatedAt <= maxPriceAge;
+        (bool btcValid,, uint256 btcUpdatedAt) = _readFeed(btcUsdFeed, btcFeedDecimals);
+        oldestUpdatedAt = Math.min(Math.min(usdcUpdatedAt, eurcUpdatedAt), btcUpdatedAt);
+        fresh = usdcValid && eurcValid && btcValid && block.timestamp - oldestUpdatedAt <= maxPriceAge;
     }
 
     function _isStale() private view returns (bool) {

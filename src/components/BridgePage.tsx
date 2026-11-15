@@ -3,32 +3,39 @@ import { AppKit, type BridgeResult } from '@circle-fin/app-kit'
 import { createViemAdapterFromProvider } from '@circle-fin/adapter-viem-v2'
 import { erc20Abi, type Chain, type EIP1193Provider } from 'viem'
 import { arcTestnet, sepolia, baseSepolia, arbitrumSepolia, polygonAmoy } from 'viem/chains'
-import { AlertCircle, ArrowDownUp, Check, CheckCircle2, ChevronDown, ExternalLink, Loader2 } from 'lucide-react'
-import { useAccount, useReadContract, useSwitchChain } from 'wagmi'
+import { AlertCircle, ArrowDownUp, Check, CheckCircle2, ExternalLink, Loader2 } from 'lucide-react'
+import { NetworkArbitrumOne, NetworkArc, NetworkBase, NetworkEthereum, NetworkPolygon } from '@web3icons/react'
+import { useAccount, useReadContracts, useSwitchChain } from 'wagmi'
 import { ConnectCta } from '@/auth/ConnectCta'
 import { getUsdc } from '@/onchain-facts'
 import { ASSETS, fmtToken, parseInput } from '@/lib/pool'
 import { spendable } from '@/lib/gas'
 import { withAddChainFallback } from '@/lib/wallet'
-import { PageTitle, TokenBadge } from '@/components/ui'
+import { Picker, type PickerOption } from '@/components/Picker'
+import { TokenBadge } from '@/components/ui'
 
 const kit = new AppKit()
 
-interface Route {
-  id: string
+type KitChain = 'Arc_Testnet' | 'Ethereum_Sepolia' | 'Base_Sepolia' | 'Arbitrum_Sepolia' | 'Polygon_Amoy_Testnet'
+type ChainId = 'arc' | 'eth' | 'base' | 'arb' | 'pol'
+
+interface Network {
+  id: ChainId
   label: string
   chain: Chain
-  kitChain: 'Ethereum_Sepolia' | 'Base_Sepolia' | 'Arbitrum_Sepolia' | 'Polygon_Amoy_Testnet'
+  kitChain: KitChain
+  Icon: typeof NetworkArc
 }
 
-const ROUTES: Route[] = [
-  { id: 'eth', label: 'Ethereum Sepolia', chain: sepolia, kitChain: 'Ethereum_Sepolia' },
-  { id: 'base', label: 'Base Sepolia', chain: baseSepolia, kitChain: 'Base_Sepolia' },
-  { id: 'arb', label: 'Arbitrum Sepolia', chain: arbitrumSepolia, kitChain: 'Arbitrum_Sepolia' },
-  { id: 'pol', label: 'Polygon Amoy', chain: polygonAmoy, kitChain: 'Polygon_Amoy_Testnet' },
+const NETWORKS: Network[] = [
+  { id: 'arc', label: 'Arc Testnet', chain: arcTestnet, kitChain: 'Arc_Testnet', Icon: NetworkArc },
+  { id: 'eth', label: 'Ethereum Sepolia', chain: sepolia, kitChain: 'Ethereum_Sepolia', Icon: NetworkEthereum },
+  { id: 'base', label: 'Base Sepolia', chain: baseSepolia, kitChain: 'Base_Sepolia', Icon: NetworkBase },
+  { id: 'arb', label: 'Arbitrum Sepolia', chain: arbitrumSepolia, kitChain: 'Arbitrum_Sepolia', Icon: NetworkArbitrumOne },
+  { id: 'pol', label: 'Polygon Amoy', chain: polygonAmoy, kitChain: 'Polygon_Amoy_Testnet', Icon: NetworkPolygon },
 ]
 
-const KNOWN_CHAINS = [arcTestnet, sepolia, baseSepolia, arbitrumSepolia, polygonAmoy] as const
+const KNOWN_CHAINS = NETWORKS.map((n) => n.chain) as unknown as readonly [Chain, ...Chain[]]
 
 /** Steps in the order the bridge runs them. Progress comes from the kit's own events. */
 const STEPS = [
@@ -41,42 +48,69 @@ const STEPS = [
 export function BridgePage() {
   const { address, connector, chainId, isConnected } = useAccount()
   const { switchChainAsync } = useSwitchChain()
-  const [routeId, setRouteId] = useState('eth')
-  const [toArc, setToArc] = useState(true)
+  const [fromId, setFromId] = useState<ChainId>('eth')
+  const [toId, setToId] = useState<ChainId>('arc')
   const [amount, setAmount] = useState('')
   const [busy, setBusy] = useState(false)
   const [reached, setReached] = useState(-1)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<BridgeResult | null>(null)
 
-  const route = ROUTES.find((r) => r.id === routeId) ?? ROUTES[0]
-  const sourceChain = toArc ? route.chain : arcTestnet
-  const destChain = toArc ? arcTestnet : route.chain
-  const sourceUsdc = getUsdc(sourceChain.id)
-  const destUsdc = getUsdc(destChain.id)
+  const from = NETWORKS.find((n) => n.id === fromId) ?? NETWORKS[0]
+  const to = NETWORKS.find((n) => n.id === toId) ?? NETWORKS[0]
   const raw = parseInput(amount, ASSETS.USDC.decimals)
 
-  const { data: balance, refetch: refetchSource } = useReadContract({
-    address: sourceUsdc?.address as `0x${string}` | undefined,
-    abi: erc20Abi,
-    functionName: 'balanceOf',
-    args: address ? [address] : undefined,
-    chainId: sourceChain.id,
-    query: { enabled: Boolean(address && sourceUsdc), refetchInterval: 10_000 },
+  // USDC balance on every network, so the pickers can show where your money is.
+  const { data: balances, refetch } = useReadContracts({
+    contracts: NETWORKS.map((n) => ({
+      address: getUsdc(n.chain.id)?.address as `0x${string}`,
+      abi: erc20Abi,
+      functionName: 'balanceOf',
+      args: [address as `0x${string}`],
+      chainId: n.chain.id,
+    })),
+    query: { enabled: Boolean(address), refetchInterval: 10_000 },
   })
-  const { data: destBalance, refetch: refetchDest } = useReadContract({
-    address: destUsdc?.address as `0x${string}` | undefined,
-    abi: erc20Abi,
-    functionName: 'balanceOf',
-    args: address ? [address] : undefined,
-    chainId: destChain.id,
-    query: { enabled: Boolean(address && destUsdc), refetchInterval: 10_000 },
-  })
-  const bal = balance ?? 0n
+  const balanceOn = (id: ChainId): bigint => {
+    const v = balances?.[NETWORKS.findIndex((n) => n.id === id)]?.result
+    return typeof v === 'bigint' ? v : 0n
+  }
+
+  const bal = balanceOn(fromId)
   // On Arc, USDC is also the gas token, so Max keeps a little back.
-  const usable = spendable(bal, !toArc)
+  const usable = spendable(bal, fromId === 'arc')
   const insufficient = raw !== undefined && raw > bal
   const needsFees = raw !== undefined && !insufficient && raw > usable
+
+  const options: PickerOption<ChainId>[] = NETWORKS.map((n) => ({
+    id: n.id,
+    label: n.label,
+    sub: n.id === 'arc' ? 'USDC is the gas token' : `Gas in ${n.chain.nativeCurrency.symbol}`,
+    right: address ? `${fmtToken(balanceOn(n.id), ASSETS.USDC.decimals)} USDC` : undefined,
+    icon: <n.Icon variant="branded" size={28} />,
+  }))
+
+  const clear = () => {
+    setResult(null)
+    setError(null)
+  }
+  const pickFrom = (id: ChainId) => {
+    if (id === toId) setToId(fromId)
+    setFromId(id)
+    setAmount('')
+    clear()
+  }
+  const pickTo = (id: ChainId) => {
+    if (id === fromId) setFromId(toId)
+    setToId(id)
+    clear()
+  }
+  const reverse = () => {
+    setFromId(toId)
+    setToId(fromId)
+    setAmount('')
+    clear()
+  }
 
   const bridge = async () => {
     if (!connector || raw === undefined) return
@@ -94,18 +128,17 @@ export function BridgePage() {
     kit.on('bridge.fetchAttestation', onAttest)
     kit.on('bridge.mint', onMint)
     try {
-      if (chainId !== sourceChain.id) await switchChainAsync({ chainId: sourceChain.id })
+      if (chainId !== from.chain.id) await switchChainAsync({ chainId: from.chain.id })
       const provider = (await connector.getProvider()) as EIP1193Provider
       const adapter = await createViemAdapterFromProvider({ provider: withAddChainFallback(provider, KNOWN_CHAINS) })
       const res = await kit.bridge({
-        from: { adapter, chain: toArc ? route.kitChain : 'Arc_Testnet' },
-        to: { adapter, chain: toArc ? 'Arc_Testnet' : route.kitChain },
+        from: { adapter, chain: from.kitChain },
+        to: { adapter, chain: to.kitChain },
         amount,
       })
       setResult(res)
       if (res.state === 'success') setAmount('')
-      void refetchSource()
-      void refetchDest()
+      void refetch()
     } catch (e) {
       setError(bridgeError(e))
     } finally {
@@ -117,94 +150,53 @@ export function BridgePage() {
     }
   }
 
-  const networkPicker = (
-    <label className="relative mt-1 block">
-      <span className="sr-only">{toArc ? 'Source network' : 'Destination network'}</span>
-      <select
-        value={routeId}
-        disabled={busy}
-        onChange={(e) => {
-          setRouteId(e.target.value)
-          setResult(null)
-          setError(null)
-        }}
-        className="min-h-11 w-full appearance-none rounded-xl border bg-transparent py-2 pl-3 pr-9 text-sm font-semibold"
-        style={{ borderColor: 'var(--border)', color: 'var(--ink)' }}
-      >
-        {ROUTES.map((r) => (
-          <option key={r.id} value={r.id} style={{ color: '#0d1b2f' }}>
-            {r.label}
-          </option>
-        ))}
-      </select>
-      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2" style={{ color: 'var(--subtle)' }} aria-hidden="true" />
-    </label>
-  )
-
-  const fixedChain = (
-    <div className="mt-1 flex min-h-11 items-center rounded-xl border px-3 text-sm font-semibold" style={{ borderColor: 'var(--border)' }}>
-      Arc Testnet
-    </div>
-  )
-
   return (
     <div className="mx-auto max-w-md">
-      <PageTitle title="Bridge USDC">Move USDC between Arc Testnet and other test networks. Tokens are burned on one side and minted on the other, so there are no wrapped tokens.</PageTitle>
+      <section className="card p-4 sm:p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <h1 className="display text-2xl font-semibold">Bridge</h1>
+          <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold" style={{ background: 'var(--surface-strong)' }}>
+            <TokenBadge symbol="USDC" size={16} /> USDC
+          </span>
+        </div>
 
-      <section className="card p-4">
         <div className="inner p-4">
           <div className="flex items-center justify-between gap-2">
             <span className="label">From</span>
             <button
-              className="num text-xs font-semibold disabled:opacity-40"
+              className="num min-h-8 text-xs font-semibold disabled:opacity-40"
               style={{ color: 'var(--accent)' }}
               disabled={usable === 0n || busy}
               onClick={() => {
                 setAmount(fmtToken(usable, ASSETS.USDC.decimals, ASSETS.USDC.decimals).replace(/,/g, ''))
-                setResult(null)
+                clear()
               }}
             >
-              Balance: {fmtToken(bal, ASSETS.USDC.decimals)} · Max
+              Max {fmtToken(bal, ASSETS.USDC.decimals)}
             </button>
           </div>
-          {toArc ? networkPicker : fixedChain}
-          <div className="mt-3 flex items-center gap-3">
+          <div className="mt-2 flex items-center gap-3">
             <input
               inputMode="decimal"
               aria-label="Amount to bridge"
-              placeholder="0.00"
+              placeholder="0"
               value={amount}
               disabled={busy}
               onChange={(e) => {
                 const v = e.target.value.replace(/[^0-9.]/g, '')
                 if (/^\d*\.?\d*$/.test(v)) {
                   setAmount(v)
-                  setResult(null)
-                  setError(null)
+                  clear()
                 }
               }}
-              className="field min-w-0 text-3xl font-semibold"
+              className="field min-w-0 text-4xl font-semibold"
             />
-            <div className="flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5" style={{ background: 'var(--surface-strong)' }}>
-              <TokenBadge symbol="USDC" size={22} />
-              <span className="text-sm font-semibold">USDC</span>
-            </div>
+            <Picker title="Bridge from" label="Source network" value={fromId} options={options} onChange={pickFrom} disabled={busy} />
           </div>
         </div>
 
         <div className="relative z-10 -my-3 flex justify-center">
-          <button
-            className="btn-ghost !min-h-11 !min-w-11 !px-0"
-            style={{ background: 'var(--surface-muted)' }}
-            onClick={() => {
-              setToArc((v) => !v)
-              setAmount('')
-              setResult(null)
-              setError(null)
-            }}
-            aria-label="Reverse direction"
-            disabled={busy}
-          >
+          <button className="btn-ghost !min-h-11 !min-w-11 !px-0" style={{ background: 'var(--surface-muted)' }} onClick={reverse} aria-label="Reverse direction" disabled={busy}>
             <ArrowDownUp className="size-4" />
           </button>
         </div>
@@ -213,23 +205,29 @@ export function BridgePage() {
           <div className="flex items-center justify-between gap-2">
             <span className="label">To</span>
             <span className="num text-xs" style={{ color: 'var(--subtle)' }}>
-              Balance: {fmtToken(destBalance ?? 0n, ASSETS.USDC.decimals)}
+              Balance {fmtToken(balanceOn(toId), ASSETS.USDC.decimals)}
             </span>
           </div>
-          {toArc ? fixedChain : networkPicker}
-          <div className="num mt-3 flex items-baseline justify-between gap-2">
-            <span className="display text-3xl font-semibold" style={{ color: raw ? 'var(--ink)' : 'var(--subtle)' }}>
-              {raw ? fmtToken(raw, ASSETS.USDC.decimals, 2) : '0.00'}
-            </span>
-            <span className="text-sm font-semibold" style={{ color: 'var(--muted)' }}>
-              USDC
-            </span>
+          <div className="mt-2 flex items-center gap-3">
+            <div className="display num min-w-0 flex-1 truncate text-4xl font-semibold" style={{ color: raw ? 'var(--ink)' : 'var(--subtle)' }}>
+              {raw ? fmtToken(raw, ASSETS.USDC.decimals, 2) : '0'}
+            </div>
+            <Picker title="Bridge to" label="Destination network" value={toId} options={options} onChange={pickTo} disabled={busy} />
           </div>
-          <p className="mt-2 text-xs" style={{ color: 'var(--subtle)' }}>
-            The same amount of USDC arrives at your own address. Network fees are paid separately: {sourceChain.nativeCurrency.symbol} on {sourceChain.name}
-            {' '}and {destChain.nativeCurrency.symbol} on {destChain.name}.
-          </p>
         </div>
+
+        <dl className="mt-3 space-y-2 px-1 text-sm">
+          <div className="flex items-center justify-between gap-3">
+            <dt style={{ color: 'var(--muted)' }}>You receive</dt>
+            <dd className="num font-medium">{raw ? `${fmtToken(raw, ASSETS.USDC.decimals, 2)} USDC` : 'Same amount'}</dd>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <dt style={{ color: 'var(--muted)' }}>Gas</dt>
+            <dd className="text-right font-medium">
+              {from.chain.nativeCurrency.symbol} on {from.label.split(' ')[0]} · {to.chain.nativeCurrency.symbol} on {to.label.split(' ')[0]}
+            </dd>
+          </div>
+        </dl>
 
         {busy && <StepProgress reached={reached} />}
 
@@ -256,16 +254,13 @@ export function BridgePage() {
               ) : insufficient ? (
                 'Insufficient balance'
               ) : needsFees ? (
-                'Leave some USDC for network fees'
+                'Keep some USDC for fees'
               ) : (
                 `Bridge ${amount} USDC`
               )}
             </button>
           )}
         </div>
-        <p className="mt-3 text-xs" style={{ color: 'var(--subtle)' }}>
-          You will be asked to approve, burn on the source network, and mint on the destination network. Your wallet switches networks for you.
-        </p>
       </section>
     </div>
   )
@@ -322,7 +317,7 @@ function BridgeReceipt({ result }: { result: BridgeResult }) {
       ))}
       {!ok && (
         <p className="text-xs" style={{ color: 'var(--subtle)' }}>
-          Funds that were already burned are not lost. Check the steps above and the destination network before trying again.
+          Funds already burned are not lost. Check the steps and the destination network before trying again.
         </p>
       )}
     </div>

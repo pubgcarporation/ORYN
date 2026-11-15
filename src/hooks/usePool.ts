@@ -9,6 +9,7 @@ import {
   poolAbi,
   reserveFromTuple,
   type AssetSymbol,
+  type Prices,
   type Reserve,
 } from '@/lib/pool'
 
@@ -31,20 +32,21 @@ const EMPTY_RESERVE: Reserve = {
 
 export interface PoolState {
   reserves: Record<AssetSymbol, Reserve>
-  eurc8: bigint
+  /** 8-decimal USD price of every asset from the pool's Chainlink feeds. */
+  prices: Prices
   priceFresh: boolean
   paused: boolean
   loaded: boolean
   refetch: () => void
 }
 
-/** Market-wide state: both reserves, the EURC price, oracle freshness and the pause flag. */
+/** Market-wide state: every reserve, the Chainlink prices, oracle freshness and the pause flag. */
 export function usePool(): PoolState {
   const { data, isSuccess, refetch } = useReadContracts({
     contracts: [
       { address: POOL_ADDRESS, abi: poolAbi, functionName: 'getReserveData', args: [ASSETS.USDC.address], chainId: ARC_ID },
       { address: POOL_ADDRESS, abi: poolAbi, functionName: 'getReserveData', args: [ASSETS.EURC.address], chainId: ARC_ID },
-      { address: POOL_ADDRESS, abi: poolAbi, functionName: 'eurUsdPrice', chainId: ARC_ID },
+      { address: POOL_ADDRESS, abi: poolAbi, functionName: 'getReserveData', args: [ASSETS.cirBTC.address], chainId: ARC_ID },
       { address: POOL_ADDRESS, abi: poolAbi, functionName: 'isPriceFresh', chainId: ARC_ID },
       { address: POOL_ADDRESS, abi: poolAbi, functionName: 'paused', chainId: ARC_ID },
     ],
@@ -53,7 +55,7 @@ export function usePool(): PoolState {
 
   const usdc = data?.[0]?.result
   const eurc = data?.[1]?.result
-  const price = data?.[2]?.result
+  const btc = data?.[2]?.result
   const fresh = data?.[3]?.result
   const paused = data?.[4]?.result
 
@@ -61,11 +63,16 @@ export function usePool(): PoolState {
     reserves: {
       USDC: usdc ? reserveFromTuple(usdc) : EMPTY_RESERVE,
       EURC: eurc ? reserveFromTuple(eurc) : EMPTY_RESERVE,
+      cirBTC: btc ? reserveFromTuple(btc) : EMPTY_RESERVE,
     },
-    eurc8: typeof price === 'bigint' ? price : 0n,
+    prices: {
+      USDC: usdc ? reserveFromTuple(usdc).price8 : 0n,
+      EURC: eurc ? reserveFromTuple(eurc).price8 : 0n,
+      cirBTC: btc ? reserveFromTuple(btc).price8 : 0n,
+    },
     priceFresh: fresh === true,
     paused: paused === true,
-    loaded: isSuccess && Boolean(usdc) && Boolean(eurc),
+    loaded: isSuccess && Boolean(usdc) && Boolean(eurc) && Boolean(btc),
     refetch: () => void refetch(),
   }
 }
@@ -135,13 +142,15 @@ export function useUser(): UserState {
     maxWithdraw: num(base + 5),
   })
 
-  const accountRaw: unknown = data?.[12]?.result
+  const accountRaw: unknown = data?.[18]?.result
   const account = Array.isArray(accountRaw) && accountRaw.length === 5 ? (accountRaw as readonly bigint[]) : undefined
   const hasAccount = account !== undefined
 
   return {
     address,
-    assets: address ? { USDC: position(0), EURC: position(6) } : { USDC: EMPTY_POSITION, EURC: EMPTY_POSITION },
+    assets: address
+      ? { USDC: position(0), EURC: position(6), cirBTC: position(12) }
+      : { USDC: EMPTY_POSITION, EURC: EMPTY_POSITION, cirBTC: EMPTY_POSITION },
     collateralUsd8: hasAccount ? account[0] : 0n,
     debtUsd8: hasAccount ? account[1] : 0n,
     borrowLimitUsd8: hasAccount ? account[2] : 0n,

@@ -1,36 +1,49 @@
+export interface AssetRow {
+  /** Supplied amount in USD at today's price. */
+  suppliedUsd: number
+  /** Borrowed amount in USD at today's price. */
+  debtUsd: number
+  /** Liquidation threshold as a fraction, for example 0.85. */
+  threshold: number
+}
+
 export interface LiquidationInputs {
-  suppliedUsdc: number
-  suppliedEurc: number
-  debtUsdc: number
-  debtEurc: number
-  /** Liquidation thresholds as fractions, for example 0.85. */
-  thresholdUsdc: number
-  thresholdEurc: number
-  /** Current EURC price in USD. */
+  rows: AssetRow[]
+  /** Index in `rows` of the asset whose price moves. */
+  target: number
+  /** Current price of the target asset in USD. */
   price: number
 }
 
 export interface LiquidationPrice {
   price: number
-  /** Which way EURC has to move for the position to become liquidatable. */
+  /** Which way the target asset has to move for the position to become liquidatable. */
   direction: 'below' | 'above'
   /** Signed distance from the current price, as a fraction. */
   distance: number
 }
 
 /**
- * The EURC/USD price at which this wallet's health factor reaches 1.
- * Health factor = (supplied USDC x threshold + supplied EURC x threshold x p) / (USDC debt + EURC debt x p),
- * so it reaches 1 where the two sides are equal. Returns null when no positive price does that,
- * meaning EURC price moves alone cannot liquidate the position (or it is already liquidatable).
+ * The price of one asset at which this wallet's health factor reaches 1, holding the other prices fixed.
+ * Health factor = sum(supplied x threshold) / sum(debt). Only the target asset's USD amounts scale with its
+ * price p, so the two sides are equal at p = (other debt - other weighted supply) / (target weighted supply - target debt).
+ * Returns null when no positive price does that, meaning this asset's price alone cannot liquidate
+ * the position (or it is already liquidatable).
  */
 export function liquidationPrice(i: LiquidationInputs): LiquidationPrice | null {
-  if (i.debtUsdc <= 0 && i.debtEurc <= 0) return null
-  const a = i.suppliedUsdc * i.thresholdUsdc
-  const b = i.suppliedEurc * i.thresholdEurc
-  const slope = b - i.debtEurc
-  if (Math.abs(slope) < 1e-9) return null
-  const p = (i.debtUsdc - a) / slope
+  if (i.price <= 0 || !i.rows.some((r) => r.debtUsd > 0)) return null
+  let otherSupply = 0
+  let otherDebt = 0
+  i.rows.forEach((r, idx) => {
+    if (idx === i.target) return
+    otherSupply += r.suppliedUsd * r.threshold
+    otherDebt += r.debtUsd
+  })
+  const t = i.rows[i.target]
+  // Express the target's amounts in units of the asset, so they scale with the price p.
+  const slope = (t.suppliedUsd * t.threshold - t.debtUsd) / i.price
+  if (Math.abs(slope) < 1e-12) return null
+  const p = (otherDebt - otherSupply) / slope
   if (!Number.isFinite(p) || p <= 0) return null
   return { price: p, direction: slope > 0 ? 'below' : 'above', distance: (p - i.price) / i.price }
 }

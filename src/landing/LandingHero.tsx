@@ -30,7 +30,7 @@ export function LandingHero({ pool }: { pool: PoolState }) {
             transition={{ delay: 0.05 }}
             className="display text-gradient mt-5 text-balance text-4xl font-semibold leading-[1.05] min-[400px]:text-5xl sm:text-6xl lg:text-7xl"
           >
-            Stablecoin credit that settles in a blink.
+            Onchain credit that settles in a blink.
           </motion.h1>
 
           <motion.p
@@ -40,7 +40,7 @@ export function LandingHero({ pool }: { pool: PoolState }) {
             className="mt-5 max-w-xl text-pretty text-base sm:mt-6 sm:text-lg"
             style={{ color: 'var(--muted)' }}
           >
-            Supply USDC and EURC to earn, borrow against your deposits, swap and bridge, all on Arc. Network fees are paid in USDC, so there is nothing else to hold.
+            Supply USDC, EURC and cirBTC to earn, borrow against your deposits, swap and bridge, all on Arc. Network fees are paid in USDC, so there is nothing else to hold.
           </motion.p>
 
           <motion.div
@@ -74,7 +74,7 @@ export function LandingHero({ pool }: { pool: PoolState }) {
 }
 
 function LiveMarkets({ pool }: { pool: PoolState }) {
-  const tvl = ASSET_LIST.reduce((sum, a) => sum + valueUsd8(pool.reserves[a.symbol].totalSupplied, a.symbol, pool.eurc8), 0n)
+  const tvl = ASSET_LIST.reduce((sum, a) => sum + valueUsd8(pool.reserves[a.symbol].totalSupplied, a.symbol, pool.prices), 0n)
   return (
     <div className="card p-5 shadow-2xl" style={{ boxShadow: '0 30px 80px -30px rgba(0,0,0,0.6)' }}>
       <div className="flex items-end justify-between gap-3">
@@ -124,7 +124,7 @@ function LiveMarkets({ pool }: { pool: PoolState }) {
         })}
       </div>
       <p className="mt-4 text-center text-[11px]" style={{ color: 'var(--subtle)' }}>
-        Read live from the market contract on Arc Testnet.
+        Balances read live from the market contract. Prices come from Chainlink.
       </p>
     </div>
   )

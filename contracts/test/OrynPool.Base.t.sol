@@ -14,6 +14,8 @@ abstract contract OrynPoolTestBase is Test {
     MockAggregator internal usdcFeed; // USDC/USD, default exactly 1.00000000 (8 decimals)
     MockERC20 internal usdc;
     MockERC20 internal eurc;
+    MockERC20 internal cirbtc; // 8 decimals
+    MockAggregator internal btcFeed; // BTC/USD, default exactly 100000.00000000 (8 decimals)
 
     address internal owner = makeAddr("owner");
     address internal updater = makeAddr("updater");
@@ -24,21 +26,27 @@ abstract contract OrynPoolTestBase is Test {
 
     uint256 internal constant PRICE = 110_220_000; // 1.1022e8
     uint256 internal constant USDC_PRICE = 100_000_000; // 1.00000000
+    uint256 internal constant BTC_PRICE = 100_000e8; // 100000.00000000
     uint256 internal constant M = 1e6;
+    uint256 internal constant B = 1e8; // one cirBTC
     uint256 internal constant START = 1_700_000_000;
 
     uint80 internal srcRound;
     uint256 internal lastPushTs;
     uint256 internal usdcPriceNow = USDC_PRICE; // answer re-published whenever the EURC feed is pushed
+    uint256 internal btcPriceNow = BTC_PRICE; // likewise for BTC
 
     function setUp() public virtual {
         vm.warp(START);
         usdc = new MockERC20("USD Coin", "USDC", 6);
         eurc = new MockERC20("Euro Coin", "EURC", 6);
+        cirbtc = new MockERC20("Circle BTC", "cirBTC", 8);
         feed = new MirrorAggregator(owner, updater, 8, "EURC / USD");
         usdcFeed = new MockAggregator(8);
         usdcFeed.setRound(int256(USDC_PRICE), START);
-        pool = new OrynPool(owner, address(usdc), address(eurc), address(usdcFeed), address(feed));
+        btcFeed = new MockAggregator(8);
+        btcFeed.setRound(int256(BTC_PRICE), START);
+        pool = new OrynPool(owner, address(usdc), address(eurc), address(cirbtc), address(usdcFeed), address(feed), address(btcFeed));
         _push(PRICE, START); // initial Chainlink round, timestamp = now
 
         _fund(pool);
@@ -50,10 +58,12 @@ abstract contract OrynPoolTestBase is Test {
             if (usdc.balanceOf(users[i]) == 0) {
                 usdc.mint(users[i], 100_000_000e6);
                 eurc.mint(users[i], 100_000_000e6);
+                cirbtc.mint(users[i], 1_000_000e8);
             }
             vm.startPrank(users[i]);
             usdc.approve(address(p), type(uint256).max);
             eurc.approve(address(p), type(uint256).max);
+            cirbtc.approve(address(p), type(uint256).max);
             vm.stopPrank();
         }
     }
@@ -86,12 +96,19 @@ abstract contract OrynPoolTestBase is Test {
         feed.pushRound(int256(p), sourceTs, ++srcRound);
         lastPushTs = sourceTs;
         usdcFeed.setRound(int256(usdcPriceNow), sourceTs);
+        btcFeed.setRound(int256(btcPriceNow), sourceTs);
     }
 
     /// @dev Publishes a USDC/USD round "now" without touching the EURC feed.
     function _setUsdcPrice(uint256 p) internal {
         usdcPriceNow = p;
         usdcFeed.setRound(int256(p), block.timestamp);
+    }
+
+    /// @dev Publishes a BTC/USD round "now" without touching the other feeds.
+    function _setBtcPrice(uint256 p) internal {
+        btcPriceNow = p;
+        btcFeed.setRound(int256(p), block.timestamp);
     }
 
     /// @dev Pushes a fresh round stamped "now"; advances 1s first if "now" was already used.
@@ -122,6 +139,19 @@ abstract contract OrynPoolTestBase is Test {
         _liquidity();
         _deposit(bob, usdc, 1_000 * M);
         _borrow(bob, eurc, borrowEurc);
+    }
+
+    /// @dev alice supplies 10,000 USDC, 10,000 EURC and 100 cirBTC.
+    function _liquidity3() internal {
+        _liquidity();
+        _deposit(alice, cirbtc, 100 * B);
+    }
+
+    /// @dev Single floor-rounded seizure: floor(applied * pd * unitC * (BPS + bonus) / (pc * unitD * BPS)).
+    function _seizeFloor(uint256 applied, uint256 pd, uint256 pc, uint256 unitD, uint256 unitC, uint256 bonus)
+        internal pure returns (uint256)
+    {
+        return Math.mulDiv(applied * pd * unitC, 10_000 + bonus, pc * unitD * 10_000);
     }
 
     function _ceil(uint256 x, uint256 y, uint256 d) internal pure returns (uint256) {

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useReadContract } from 'wagmi'
-import { ARC_ID, ASSETS, ASSET_LIST, POOL_ADDRESS, fmtHealth, fmtToken, fmtUsd8, healthTone, poolAbi, valueUsd8, type AssetSymbol } from '@/lib/pool'
+import { ARC_ID, ASSETS, ASSET_LIST, POOL_ADDRESS, fmtAsset, fmtHealth, fmtUsd8, healthTone, poolAbi, valueUsd8, type AssetSymbol } from '@/lib/pool'
 import type { PoolState, UserState } from '@/hooks/usePool'
 
 const TONE_COLOR = { none: 'var(--ink)', safe: 'var(--success)', warn: 'var(--warn)', danger: 'var(--danger)' } as const
@@ -23,7 +23,7 @@ export function BorrowSimulator({ pool, user }: { pool: PoolState; user: UserSta
 
   const hasCollateral = user.collateralUsd8 > 0n
   const healthAfter = amount > 0n && preview ? preview[0] : user.healthWad
-  const debtAfter = user.debtUsd8 + valueUsd8(amount, symbol, pool.eurc8)
+  const debtAfter = user.debtUsd8 + valueUsd8(amount, symbol, pool.prices)
   const ltvAfter = hasCollateral ? Number((debtAfter * 10_000n) / user.collateralUsd8) / 100 : 0
   const tone = healthTone(healthAfter)
 
@@ -40,7 +40,7 @@ export function BorrowSimulator({ pool, user }: { pool: PoolState; user: UserSta
         </p>
       ) : !hasCollateral ? (
         <p className="inner mt-4 p-4 text-sm" style={{ color: 'var(--muted)' }}>
-          Deposit USDC or EURC on the Earn page first. Your deposits are your borrowing power.
+          Deposit USDC, EURC or cirBTC on the Earn page first. Your deposits are your borrowing power.
         </p>
       ) : (
         <div className="mt-4 space-y-4">
@@ -62,10 +62,10 @@ export function BorrowSimulator({ pool, user }: { pool: PoolState; user: UserSta
           <div>
             <div className="flex items-baseline justify-between">
               <span className="display num text-3xl font-semibold">
-                {fmtToken(amount, asset.decimals)} <span className="text-base" style={{ color: 'var(--subtle)' }}>{symbol}</span>
+                {fmtAsset(amount, symbol)} <span className="text-base" style={{ color: 'var(--subtle)' }}>{symbol}</span>
               </span>
               <span className="text-xs" style={{ color: 'var(--subtle)' }}>
-                Limit {fmtToken(maxBorrow, asset.decimals)}
+                Limit {fmtAsset(maxBorrow, symbol)}
               </span>
             </div>
             <input
@@ -92,7 +92,7 @@ export function BorrowSimulator({ pool, user }: { pool: PoolState; user: UserSta
           </div>
           {maxBorrow === 0n && (
             <p className="text-xs" style={{ color: 'var(--subtle)' }}>
-              Nothing is borrowable right now. This happens when the market has no liquidity, or the EURC price needs a refresh.
+              Nothing is borrowable right now. This happens when the market has no liquidity, or a Chainlink price needs a refresh.
             </p>
           )}
         </div>

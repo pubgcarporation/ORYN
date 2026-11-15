@@ -10,7 +10,7 @@ function span(seconds: number): string {
   return `${Math.floor(seconds / 86_400)} d ${Math.floor((seconds % 86_400) / 3600)} h`
 }
 
-/** The EURC price the pool uses, how old it is, and when borrowing pauses if it is not refreshed. */
+/** The Chainlink prices the pool uses, how old the oldest one is, and when borrowing pauses if it is not refreshed. */
 export function OracleCard({ pool }: { pool: PoolState }) {
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000))
   useEffect(() => {
@@ -26,7 +26,7 @@ export function OracleCard({ pool }: { pool: PoolState }) {
   })
   const updatedAt = data?.[0]?.result
   const maxAge = data?.[1]?.result
-  if (typeof updatedAt !== 'bigint' || typeof maxAge !== 'bigint' || pool.eurc8 === 0n) return null
+  if (typeof updatedAt !== 'bigint' || typeof maxAge !== 'bigint' || pool.prices.EURC === 0n) return null
 
   const age = Math.max(0, now - Number(updatedAt))
   const remaining = Number(maxAge) - age
@@ -38,7 +38,7 @@ export function OracleCard({ pool }: { pool: PoolState }) {
         <div>
           <h2 className="display text-xl font-semibold">Chainlink price</h2>
           <p className="mt-1 max-w-md text-sm" style={{ color: 'var(--muted)' }}>
-            The pool values EURC with the Chainlink EURC / USD price. Nobody sets it by hand: the pool reads the feed itself, uses the time Chainlink published each price, and pauses borrowing and liquidations if it goes stale. On testnet the Arc mainnet Chainlink price is relayed onto the testnet feed.
+            The pool values USDC, EURC and cirBTC with Chainlink prices. Nobody sets them by hand: the pool reads the feeds itself, uses the time Chainlink published each price, and pauses borrowing and liquidations if any of them goes stale. On testnet the Arc mainnet Chainlink prices are relayed onto the testnet feeds.
           </p>
         </div>
         <span
@@ -48,13 +48,17 @@ export function OracleCard({ pool }: { pool: PoolState }) {
           <ShieldCheck className="size-3.5" /> {fresh ? 'Fresh' : 'Stale'}
         </span>
       </div>
-      <dl className="mt-4 grid grid-cols-3 gap-3">
+      <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="inner p-3">
           <dt className="label">EURC / USD</dt>
-          <dd className="display num mt-1 text-lg font-semibold">${(Number(pool.eurc8) / 1e8).toFixed(4)}</dd>
+          <dd className="display num mt-1 text-lg font-semibold">${(Number(pool.prices.EURC) / 1e8).toFixed(4)}</dd>
         </div>
         <div className="inner p-3">
-          <dt className="label">Last update</dt>
+          <dt className="label">BTC / USD</dt>
+          <dd className="display num mt-1 text-lg font-semibold">${(Number(pool.prices.cirBTC) / 1e8).toLocaleString('en-US', { maximumFractionDigits: 0 })}</dd>
+        </div>
+        <div className="inner p-3">
+          <dt className="label">Oldest update</dt>
           <dd className="display num mt-1 text-lg font-semibold">{span(age)} ago</dd>
         </div>
         <div className="inner p-3">

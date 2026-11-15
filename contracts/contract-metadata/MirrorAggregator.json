@@ -1,13 +1,20 @@
 {
-  "contractAddress": "0x9079cfc19553b44d724c92e4aa8b9c41d2f12c6b",
+  "contractAddress": "0x2ccf7c5c2681fee5ebc309827b9a1d481218bfd3",
   "network": "ARC-TESTNET",
   "deployerWalletId": "3c2464b2-8369-52e2-a782-800bbeca5396",
   "contract_code_path": "/home/user/app/contracts/MirrorAggregator.sol",
   "contract_compiled_code_path": "/home/user/app/contracts/out/MirrorAggregator.sol/MirrorAggregator.json",
   "contract_network_and_links": {
-    "Arc Testnet": "https://explorer.testnet.arc.io/address/0x9079cfc19553b44d724c92e4aa8b9c41d2f12c6b"
+    "Arc Testnet": "https://explorer.testnet.arc.io/address/0x2ccf7c5c2681fee5ebc309827b9a1d481218bfd3"
   },
   "contract_deployments": [
+    {
+      "chain": "Arc Testnet",
+      "address": "0x2ccf7c5c2681fee5ebc309827b9a1d481218bfd3",
+      "explorerUrl": "https://explorer.testnet.arc.io/address/0x2ccf7c5c2681fee5ebc309827b9a1d481218bfd3",
+      "txHash": "0x17b86e7a43db42eb24c0aeb1abfb4be0c6913b93f6355e25f49411823d7268a9",
+      "deployedAt": "2026-11-15T16:18:55.256Z"
+    },
     {
       "chain": "Arc Testnet",
       "address": "0x9079cfc19553b44d724c92e4aa8b9c41d2f12c6b",

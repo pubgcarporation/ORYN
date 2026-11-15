@@ -11,7 +11,7 @@ contract OrynPoolFeedTest is OrynPoolTestBase {
     // ================================================================ decimals scaling
     function _poolWithMirror(uint8 dec, int256 answer) internal returns (OrynPool p, MirrorAggregator f) {
         f = new MirrorAggregator(owner, updater, dec, "EURC / USD");
-        p = new OrynPool(owner, address(usdc), address(eurc), address(usdcFeed), address(f));
+        p = new OrynPool(owner, address(usdc), address(eurc), address(cirbtc), address(usdcFeed), address(f), address(btcFeed));
         _fund(p);
         vm.prank(updater);
         f.pushRound(answer, block.timestamp, 1);
@@ -83,7 +83,7 @@ contract OrynPoolFeedTest is OrynPoolTestBase {
         // 18 decimals: anything below 1e10 maps to < 1e-8 USD -> price8 == 0
         MockAggregator m = new MockAggregator(18);
         m.setRound(9_999_999_999, block.timestamp);
-        OrynPool p = new OrynPool(owner, address(usdc), address(eurc), address(usdcFeed), address(m));
+        OrynPool p = new OrynPool(owner, address(usdc), address(eurc), address(cirbtc), address(usdcFeed), address(m), address(btcFeed));
         assertFalse(p.isPriceFresh());
         vm.expectRevert(OrynPool.InvalidPrice.selector);
         p.eurUsdPrice();
@@ -97,7 +97,7 @@ contract OrynPoolFeedTest is OrynPoolTestBase {
     function test_Scaling_HugeAnswerOnLowDecimalsFeedIsInvalidNotOverflow() public {
         MockAggregator m = new MockAggregator(0);
         m.setRound(type(int256).max, block.timestamp); // * 1e8 would overflow uint256
-        OrynPool p = new OrynPool(owner, address(usdc), address(eurc), address(usdcFeed), address(m));
+        OrynPool p = new OrynPool(owner, address(usdc), address(eurc), address(cirbtc), address(usdcFeed), address(m), address(btcFeed));
         assertFalse(p.isPriceFresh());
         vm.expectRevert(OrynPool.InvalidPrice.selector);
         p.eurUsdPrice();
@@ -108,7 +108,7 @@ contract OrynPoolFeedTest is OrynPoolTestBase {
         answer = bound(answer, 1, 1e30);
         MockAggregator m = new MockAggregator(dec);
         m.setRound(int256(answer), block.timestamp);
-        OrynPool p = new OrynPool(owner, address(usdc), address(eurc), address(usdcFeed), address(m));
+        OrynPool p = new OrynPool(owner, address(usdc), address(eurc), address(cirbtc), address(usdcFeed), address(m), address(btcFeed));
         uint256 expected = dec >= 8
             ? answer / (uint256(10) ** uint256(dec - 8))
             : answer * (uint256(10) ** uint256(8 - dec));
@@ -126,7 +126,7 @@ contract OrynPoolFeedTest is OrynPoolTestBase {
     function _mockPoolWithBorrower() internal returns (OrynPool p, MockAggregator m) {
         m = new MockAggregator(8);
         m.setRound(int256(PRICE), block.timestamp);
-        p = new OrynPool(owner, address(usdc), address(eurc), address(usdcFeed), address(m));
+        p = new OrynPool(owner, address(usdc), address(eurc), address(cirbtc), address(usdcFeed), address(m), address(btcFeed));
         _fund(p);
         vm.startPrank(alice);
         p.deposit(address(usdc), 10_000 * M);
@@ -249,7 +249,7 @@ contract OrynPoolFeedTest is OrynPoolTestBase {
     // ================================================================ views on empty feed
     function _emptyFeedPool() internal returns (OrynPool p, MirrorAggregator f) {
         f = new MirrorAggregator(owner, updater, 8, "EURC / USD");
-        p = new OrynPool(owner, address(usdc), address(eurc), address(usdcFeed), address(f));
+        p = new OrynPool(owner, address(usdc), address(eurc), address(cirbtc), address(usdcFeed), address(f), address(btcFeed));
         _fund(p);
     }
 

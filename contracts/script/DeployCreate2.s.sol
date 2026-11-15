@@ -18,9 +18,13 @@ import {Create2Factory} from "./Create2Factory.sol";
 ///                         thin wrapper script that constructs `abi.encodePacked(type(Target).creationCode, abi.encode(...))`)
 ///   DEPLOY_VALUE        - optional wei amount to forward to the target's constructor (default 0)
 ///
-/// For OrynPool, append abi.encode(initialOwner, usdc, eurc, usdcUsdFeed, eurcUsdFeed), all addresses.
-/// The fourth and fifth arguments are configured AggregatorV3 feed addresses, never numeric prices.
-/// On Arc Testnet use the corresponding mirror addresses, not mainnet proxy addresses.
+/// For OrynPool, append
+/// abi.encode(initialOwner, usdc, eurc, cirBtc, usdcUsdFeed, eurcUsdFeed, btcUsdFeed), all addresses.
+/// The fifth through seventh arguments are configured AggregatorV3 feed addresses, never numeric prices.
+/// cirBtc is Circle wrapped Bitcoin (8 decimals), Arc Testnet 0xf0C4a4CE82A5746AbAAd9425360Ab04fbBA432BF.
+/// Token decimals are read once during construction; each token and feed must have at most 18 decimals.
+/// All three assets must be distinct. On Arc Testnet use the corresponding testnet feed or mirror
+/// addresses, not mainnet proxy addresses. The seven arguments change the CREATE2 init-code hash.
 ///
 /// `CREATE2_SALT` is read via `vm.envBytes32` directly. If you'd rather derive the salt from a
 /// human-readable string, read it with `vm.envString("CREATE2_SALT_STRING")` and hash it yourself

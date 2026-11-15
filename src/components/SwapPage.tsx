@@ -1,17 +1,20 @@
 import { useState } from 'react'
 import { AppKit, type SwapEstimate, type SwapResult } from '@circle-fin/app-kit'
 import { createViemAdapterFromProvider } from '@circle-fin/adapter-viem-v2'
-import type { EIP1193Provider } from 'viem'
-import { ArrowDownUp, ExternalLink, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react'
-import { erc20Abi } from 'viem'
-import { useAccount, useReadContract, useSwitchChain } from 'wagmi'
+import { erc20Abi, type EIP1193Provider } from 'viem'
+import { AlertCircle, ArrowDownUp, CheckCircle2, ExternalLink, Loader2, SlidersHorizontal } from 'lucide-react'
+import { NetworkArc } from '@web3icons/react'
+import { useAccount, useReadContracts, useSwitchChain } from 'wagmi'
 import { ConnectCta } from '@/auth/ConnectCta'
 import { ARC_ID, ASSETS, fmtToken, parseInput, type AssetSymbol } from '@/lib/pool'
 import { spendable } from '@/lib/gas'
-import { PageTitle, TokenBadge } from '@/components/ui'
+import { Picker, type PickerOption } from '@/components/Picker'
+import { TokenBadge } from '@/components/ui'
 
 const kit = new AppKit()
 const SLIPPAGE_OPTIONS = [50, 100, 200]
+/** The tokens the swap route supports on Arc Testnet. */
+const SWAP_TOKENS: AssetSymbol[] = ['USDC', 'EURC']
 
 interface Reviewed {
   estimate: SwapEstimate
@@ -26,45 +29,36 @@ export function SwapPage() {
   const { address, connector, chainId, isConnected } = useAccount()
   const { switchChainAsync } = useSwitchChain()
   const [tokenIn, setTokenIn] = useState<AssetSymbol>('USDC')
+  const [tokenOut, setTokenOut] = useState<AssetSymbol>('EURC')
   const [amount, setAmount] = useState('')
   const [slippageBps, setSlippageBps] = useState(100)
+  const [showSettings, setShowSettings] = useState(false)
   const [reviewed, setReviewed] = useState<Reviewed | null>(null)
   const [busy, setBusy] = useState<'quote' | 'swap' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<SwapResult | null>(null)
 
-  const tokenOut: AssetSymbol = tokenIn === 'USDC' ? 'EURC' : 'USDC'
   const inAsset = ASSETS[tokenIn]
-  const outAsset = ASSETS[tokenOut]
   const raw = parseInput(amount, inAsset.decimals)
 
-  const { data: balance, refetch: refetchIn } = useReadContract({
-    address: inAsset.address,
-    abi: erc20Abi,
-    functionName: 'balanceOf',
-    args: address ? [address] : undefined,
-    chainId: ARC_ID,
+  const { data: balances, refetch } = useReadContracts({
+    contracts: SWAP_TOKENS.map((s) => ({
+      address: ASSETS[s].address,
+      abi: erc20Abi,
+      functionName: 'balanceOf',
+      args: [address as `0x${string}`],
+      chainId: ARC_ID,
+    })),
     query: { enabled: Boolean(address), refetchInterval: 8000 },
   })
-  const { data: outBalance, refetch: refetchOut } = useReadContract({
-    address: outAsset.address,
-    abi: erc20Abi,
-    functionName: 'balanceOf',
-    args: address ? [address] : undefined,
-    chainId: ARC_ID,
-    query: { enabled: Boolean(address), refetchInterval: 8000 },
-  })
-  const bal = balance ?? 0n
+  const balanceOf = (s: AssetSymbol): bigint => {
+    const v = balances?.[SWAP_TOKENS.indexOf(s)]?.result
+    return typeof v === 'bigint' ? v : 0n
+  }
+  const bal = balanceOf(tokenIn)
   const usable = spendable(bal, tokenIn === 'USDC')
   const insufficient = raw !== undefined && raw > bal
   const needsFees = raw !== undefined && !insufficient && raw > usable
-
-  const getAdapter = async () => {
-    if (!connector) throw new Error('Wallet not connected')
-    if (chainId !== ARC_ID) await switchChainAsync({ chainId: ARC_ID })
-    const provider = (await connector.getProvider()) as EIP1193Provider
-    return createViemAdapterFromProvider({ provider })
-  }
 
   const resetQuote = () => {
     setReviewed(null)
@@ -72,10 +66,38 @@ export function SwapPage() {
     setError(null)
   }
 
-  const flip = () => {
-    setTokenIn(tokenOut)
+  const options: PickerOption<AssetSymbol>[] = SWAP_TOKENS.map((s) => ({
+    id: s,
+    label: s,
+    sub: ASSETS[s].name,
+    right: address ? fmtToken(balanceOf(s), ASSETS[s].decimals) : undefined,
+    icon: <TokenBadge symbol={s} size={28} />,
+  }))
+
+  const pickIn = (s: AssetSymbol) => {
+    if (s === tokenOut) setTokenOut(tokenIn)
+    setTokenIn(s)
     setAmount('')
     resetQuote()
+  }
+  const pickOut = (s: AssetSymbol) => {
+    if (s === tokenIn) setTokenIn(tokenOut)
+    setTokenOut(s)
+    setAmount('')
+    resetQuote()
+  }
+  const flip = () => {
+    setTokenIn(tokenOut)
+    setTokenOut(tokenIn)
+    setAmount('')
+    resetQuote()
+  }
+
+  const getAdapter = async () => {
+    if (!connector) throw new Error('Wallet not connected')
+    if (chainId !== ARC_ID) await switchChainAsync({ chainId: ARC_ID })
+    const provider = (await connector.getProvider()) as EIP1193Provider
+    return createViemAdapterFromProvider({ provider })
   }
 
   const review = async () => {
@@ -121,8 +143,7 @@ export function SwapPage() {
       setResult(res)
       setReviewed(null)
       setAmount('')
-      void refetchIn()
-      void refetchOut()
+      void refetch()
     } catch (e) {
       setError(swapError(e))
     } finally {
@@ -135,14 +156,55 @@ export function SwapPage() {
 
   return (
     <div className="mx-auto max-w-md">
-      <PageTitle title="Swap">Trade between USDC and EURC on Arc Testnet.</PageTitle>
+      <section className="card p-4 sm:p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <h1 className="display text-2xl font-semibold">Swap</h1>
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold" style={{ background: 'var(--surface-strong)' }}>
+              <NetworkArc variant="branded" size={16} /> Arc Testnet
+            </span>
+            <button
+              className="btn-ghost !min-h-11 !min-w-11 !px-0"
+              aria-label="Slippage settings"
+              aria-expanded={showSettings}
+              onClick={() => setShowSettings((v) => !v)}
+            >
+              <SlidersHorizontal className="size-4" />
+            </button>
+          </div>
+        </div>
 
-      <section className="card p-4">
+        {showSettings && (
+          <div className="inner mb-3 flex items-center justify-between gap-3 p-3">
+            <span className="text-sm" style={{ color: 'var(--muted)' }}>
+              Slippage
+            </span>
+            <div className="flex gap-1.5" role="group" aria-label="Slippage tolerance">
+              {SLIPPAGE_OPTIONS.map((bps) => (
+                <button
+                  key={bps}
+                  type="button"
+                  disabled={busy !== null}
+                  aria-pressed={slippageBps === bps}
+                  onClick={() => {
+                    setSlippageBps(bps)
+                    resetQuote()
+                  }}
+                  className="chip"
+                  style={slippageBps === bps ? { borderColor: 'var(--accent)', background: 'var(--surface-strong)', color: 'var(--ink)' } : undefined}
+                >
+                  {bps / 100}%
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="inner p-4">
           <div className="flex items-center justify-between gap-2">
             <span className="label">You pay</span>
             <button
-              className="num text-xs font-semibold disabled:opacity-40"
+              className="num min-h-8 text-xs font-semibold disabled:opacity-40"
               style={{ color: 'var(--accent)' }}
               disabled={usable === 0n || busy !== null}
               onClick={() => {
@@ -150,14 +212,14 @@ export function SwapPage() {
                 resetQuote()
               }}
             >
-              Balance: {fmtToken(bal, inAsset.decimals)} · Max
+              Max {fmtToken(bal, inAsset.decimals)}
             </button>
           </div>
           <div className="mt-2 flex items-center gap-3">
             <input
               inputMode="decimal"
               aria-label="Amount to swap"
-              placeholder="0.00"
+              placeholder="0"
               value={amount}
               disabled={busy !== null}
               onChange={(e) => {
@@ -167,15 +229,10 @@ export function SwapPage() {
                   resetQuote()
                 }
               }}
-              className="field min-w-0 text-3xl font-semibold"
+              className="field min-w-0 text-4xl font-semibold"
             />
-            <TokenPill symbol={tokenIn} />
+            <Picker title="Select token to pay" label="Pay token" value={tokenIn} options={options} onChange={pickIn} disabled={busy !== null} />
           </div>
-          {tokenIn === 'USDC' && (
-            <p className="mt-2 text-[11px]" style={{ color: 'var(--subtle)' }}>
-              USDC also pays network fees on Arc, so Max keeps a small amount back.
-            </p>
-          )}
         </div>
 
         <div className="relative z-10 -my-3 flex justify-center">
@@ -186,57 +243,27 @@ export function SwapPage() {
 
         <div className="inner p-4">
           <div className="flex items-center justify-between gap-2">
-            <span className="label">You receive (estimated)</span>
+            <span className="label">You receive</span>
             <span className="num text-xs" style={{ color: 'var(--subtle)' }}>
-              Balance: {fmtToken(outBalance ?? 0n, outAsset.decimals)}
+              Balance {fmtToken(balanceOf(tokenOut), ASSETS[tokenOut].decimals)}
             </span>
           </div>
           <div className="mt-2 flex items-center gap-3">
-            <div className="display num min-w-0 flex-1 truncate text-3xl font-semibold" style={{ color: reviewed ? 'var(--ink)' : 'var(--subtle)' }}>
-              {busy === 'quote' ? <span className="inline-block h-8 w-28 animate-pulse rounded-lg bg-white/10 align-middle" /> : reviewed ? reviewed.estimate.estimatedOutput.amount : '0.00'}
+            <div className="display num min-w-0 flex-1 truncate text-4xl font-semibold" style={{ color: reviewed ? 'var(--ink)' : 'var(--subtle)' }}>
+              {busy === 'quote' ? <span className="inline-block h-9 w-28 animate-pulse rounded-lg bg-white/10 align-middle" /> : reviewed ? reviewed.estimate.estimatedOutput.amount : '0'}
             </div>
-            <TokenPill symbol={tokenOut} />
-          </div>
-        </div>
-
-        <div className="mt-3">
-          <span className="label">Slippage tolerance</span>
-          <div className="mt-1.5 grid grid-cols-3 gap-2" role="group" aria-label="Slippage tolerance">
-            {SLIPPAGE_OPTIONS.map((bps) => (
-              <button
-                key={bps}
-                type="button"
-                disabled={busy !== null}
-                aria-pressed={slippageBps === bps}
-                onClick={() => {
-                  setSlippageBps(bps)
-                  resetQuote()
-                }}
-                className="num min-h-11 rounded-xl border text-sm font-semibold transition-colors disabled:opacity-40"
-                style={{
-                  borderColor: slippageBps === bps ? 'var(--accent)' : 'var(--border)',
-                  background: slippageBps === bps ? 'var(--surface-strong)' : 'transparent',
-                  color: slippageBps === bps ? 'var(--ink)' : 'var(--muted)',
-                }}
-              >
-                {bps / 100}%
-              </button>
-            ))}
+            <Picker title="Select token to receive" label="Receive token" value={tokenOut} options={options} onChange={pickOut} disabled={busy !== null} />
           </div>
         </div>
 
         {reviewed && (
-          <div className="inner mt-3 space-y-2 p-4 text-sm">
-            {rate !== undefined && Number.isFinite(rate) && (
-              <Line label="Rate" value={`1 ${reviewed.tokenIn} ≈ ${rate.toFixed(4)} ${reviewed.tokenOut}`} />
-            )}
-            {reviewed.estimate.stopLimit && (
-              <Line label="Minimum received" value={`${reviewed.estimate.stopLimit.amount} ${reviewed.estimate.stopLimit.token}`} />
-            )}
+          <dl className="mt-3 space-y-2 px-1 text-sm">
+            {rate !== undefined && Number.isFinite(rate) && <Line label="Rate" value={`1 ${reviewed.tokenIn} ≈ ${rate.toFixed(4)} ${reviewed.tokenOut}`} />}
+            {reviewed.estimate.stopLimit && <Line label="Minimum received" value={`${reviewed.estimate.stopLimit.amount} ${reviewed.estimate.stopLimit.token}`} />}
             {(reviewed.estimate.fees ?? []).map((f, i) => (
               <Line key={i} label={`${f.type} fee`} value={f.amount ? `${f.amount} ${f.token}` : 'n/a'} />
             ))}
-          </div>
+          </dl>
         )}
 
         {error && (
@@ -271,7 +298,7 @@ export function SwapPage() {
               <button className="btn-primary w-full" disabled={busy !== null} onClick={() => void execute()}>
                 {busy === 'swap' ? (
                   <>
-                    <Loader2 className="size-4 animate-spin" /> Confirm in your wallet...
+                    <Loader2 className="size-4 animate-spin" /> Confirm in wallet
                   </>
                 ) : (
                   `Swap ${reviewed.amount} ${reviewed.tokenIn}`
@@ -282,34 +309,21 @@ export function SwapPage() {
             <button className="btn-primary w-full" disabled={raw === undefined || insufficient || needsFees || busy !== null} onClick={() => void review()}>
               {busy === 'quote' ? (
                 <>
-                  <Loader2 className="size-4 animate-spin" /> Getting quote...
+                  <Loader2 className="size-4 animate-spin" /> Getting quote
                 </>
               ) : raw === undefined ? (
                 'Enter an amount'
               ) : insufficient ? (
                 'Insufficient balance'
               ) : needsFees ? (
-                'Leave some USDC for network fees'
+                'Keep some USDC for fees'
               ) : (
-                'Review quote'
+                'Get quote'
               )}
             </button>
           )}
         </div>
-
-        <p className="mt-3 text-xs" style={{ color: 'var(--subtle)' }}>
-          Swaps are routed through a swap provider that can change by route, and are subject to that provider's terms. Quotes are estimates and can move before you confirm.
-        </p>
       </section>
-    </div>
-  )
-}
-
-function TokenPill({ symbol }: { symbol: AssetSymbol }) {
-  return (
-    <div className="flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5" style={{ background: 'var(--surface-strong)' }}>
-      <TokenBadge symbol={symbol} size={22} />
-      <span className="text-sm font-semibold">{symbol}</span>
     </div>
   )
 }
@@ -317,8 +331,8 @@ function TokenPill({ symbol }: { symbol: AssetSymbol }) {
 function Line({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <span style={{ color: 'var(--muted)' }}>{label}</span>
-      <span className="num text-right font-medium">{value}</span>
+      <dt style={{ color: 'var(--muted)' }}>{label}</dt>
+      <dd className="num text-right font-medium">{value}</dd>
     </div>
   )
 }

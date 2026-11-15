@@ -1,11 +1,11 @@
 /**
- * Relays the Arc mainnet Chainlink EURC/USD and USDC/USD answers onto the Arc Testnet mirror feeds.
+ * Relays the Arc mainnet Chainlink EURC/USD, USDC/USD and BTC/USD answers onto the Arc Testnet mirror feeds.
  *
  * It copies Chainlink's own answer and its ORIGINAL update time, so the pool judges freshness
  * against when Chainlink published the price, never against when this script ran.
  *
  * Env (names only, never commit values):
- *   VITE_EURC_PRICE_FEED_ADDRESS, VITE_USDC_PRICE_FEED_ADDRESS  mirror feeds on Arc Testnet
+ *   VITE_EURC_PRICE_FEED_ADDRESS, VITE_USDC_PRICE_FEED_ADDRESS, VITE_BTC_PRICE_FEED_ADDRESS  mirror feeds on Arc Testnet
  *   RELAYER_PRIVATE_KEY      key of the feed's updater address
  *   MAINNET_RPC_URL          optional, defaults to https://rpc.mainnet.arc.io
  *   TESTNET_RPC_URL          optional, defaults to the Arc Testnet RPC from viem
@@ -19,6 +19,7 @@ import { arcTestnet } from 'viem/chains'
 
 const PAIRS = [
   { description: 'EURC / USD', source: '0x361b95c10b76Ca3f35C686d423e43A951755Bf23' as Address, mirror: process.env.VITE_EURC_PRICE_FEED_ADDRESS as Address | undefined },
+  { description: 'BTC / USD', source: '0xa109B535C70C8Be9995be64Bb6751AcDB27e03De' as Address, mirror: process.env.VITE_BTC_PRICE_FEED_ADDRESS as Address | undefined },
   { description: 'USDC / USD', source: '0x84EA90AC252Dc437031461836DB5164219147905' as Address, mirror: process.env.VITE_USDC_PRICE_FEED_ADDRESS as Address | undefined },
 ]
 const feedAbi = parseAbi([

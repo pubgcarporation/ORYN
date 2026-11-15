@@ -11,13 +11,16 @@ import {
   MAX_UINT,
   POOL_ADDRESS,
   fmtApr,
+  fmtAsset,
   fmtBps,
   fmtHealth,
   fmtToken,
+  fmtUsd8,
   healthTone,
   parseInput,
   poolAbi,
   type AssetSymbol,
+  valueUsd8,
 } from '@/lib/pool'
 import type { PoolState, UserState } from '@/hooks/usePool'
 import { useTx, type TxStep } from '@/hooks/useTx'
@@ -254,13 +257,32 @@ export function ActionSheet({ action, symbol, pool, user, onClose }: Props) {
                     onClick={() => setAmount(fmtToken(max, asset.decimals, asset.decimals).replace(/,/g, ''))}
                   >
                     {action === 'deposit' ? 'Wallet' : action === 'withdraw' ? 'Available' : action === 'borrow' ? 'Limit' : 'Owed'}:{' '}
-                    {fmtToken(max, asset.decimals)} · Max
+                    {fmtAsset(max, symbol)} · Max
                   </button>
+                </div>
+                <div className="mt-3 flex items-center justify-between gap-2">
+                  <div className="flex gap-1.5" role="group" aria-label="Quick amounts">
+                    {[25, 50, 75].map((pct) => (
+                      <button
+                        key={pct}
+                        type="button"
+                        className="chip"
+                        disabled={max === 0n || tx.busy}
+                        onClick={() => setAmount(fmtToken((max * BigInt(pct)) / 100n, asset.decimals, asset.decimals).replace(/,/g, ''))}
+                      >
+                        {pct}%
+                      </button>
+                    ))}
+                  </div>
+                  <span className="num text-xs" style={{ color: 'var(--subtle)' }}>
+                    {raw !== undefined && pool.loaded ? `≈ ${fmtUsd8(valueUsd8(raw, symbol, pool.prices))}` : '\u00a0'}
+                  </span>
                 </div>
               </div>
 
               <div className="inner divide-y divide-white/10 text-sm">
                 <Row label={action === 'borrow' || action === 'repay' ? 'Borrow APY' : 'Supply APY'} value={fmtApr(rate)} />
+                <Row label="Chainlink price" value={pool.loaded ? fmtUsd8(pool.prices[symbol], symbol === 'cirBTC' ? 0 : 4) : '...'} />
                 {action === 'deposit' && <Row label="Collateral factor" value={fmtBps(reserve.ltv)} />}
                 {action === 'borrow' && (
                   <Row
@@ -270,12 +292,12 @@ export function ActionSheet({ action, symbol, pool, user, onClose }: Props) {
                   />
                 )}
                 {(action === 'borrow' || action === 'withdraw') && (
-                  <Row label="Market liquidity" value={`${fmtToken(reserve.availableLiquidity, asset.decimals)} ${symbol}`} />
+                  <Row label="Market liquidity" value={`${fmtAsset(reserve.availableLiquidity, symbol)} ${symbol}`} />
                 )}
                 {(action === 'repay' || action === 'withdraw') && (
                   <Row
                     label={action === 'repay' ? 'Your debt' : 'Your supply'}
-                    value={`${fmtToken(action === 'repay' ? position.debt : position.supplied, asset.decimals)} ${symbol}`}
+                    value={`${fmtAsset(action === 'repay' ? position.debt : position.supplied, symbol)} ${symbol}`}
                   />
                 )}
               </div>
@@ -286,7 +308,7 @@ export function ActionSheet({ action, symbol, pool, user, onClose }: Props) {
                 </p>
               )}
               {action === 'borrow' && !pool.priceFresh && (
-                <Notice>The EURC price is out of date, so borrowing is paused until it is refreshed.</Notice>
+                <Notice>A Chainlink price is out of date, so borrowing is paused until it is refreshed.</Notice>
               )}
               {tx.phase === 'error' && <Notice>{tx.error}</Notice>}
 

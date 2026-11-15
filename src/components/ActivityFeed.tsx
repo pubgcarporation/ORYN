@@ -1,7 +1,7 @@
 import { ArrowDownToLine, ArrowUpFromLine, ExternalLink, HandCoins, ShieldAlert, Swords, Undo2, type LucideIcon } from 'lucide-react'
 import type { Address } from 'viem'
 import { buildTxExplorerUrl } from '@/onchain-facts'
-import { ARC_ID, ASSETS, fmtToken } from '@/lib/pool'
+import { ARC_ID, fmtAsset } from '@/lib/pool'
 import { useActivity, type ActivityKind } from '@/hooks/useActivity'
 import { Skeleton, TokenBadge } from '@/components/ui'
 
@@ -79,7 +79,7 @@ export function ActivityFeed({ address }: { address: Address }) {
                   <div className="flex items-center gap-2 text-right">
                     <span className="display num text-base font-semibold" style={{ color: m.tone }}>
                       {m.sign}
-                      {fmtToken(item.amount, ASSETS[item.symbol].decimals)} {item.symbol}
+                      {fmtAsset(item.amount, item.symbol)} {item.symbol}
                     </span>
                     <ExternalLink className="size-3.5 shrink-0" style={{ color: 'var(--subtle)' }} />
                   </div>

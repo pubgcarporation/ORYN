@@ -1,4 +1,4 @@
-import { ASSET_LIST, type AssetSymbol } from '@/lib/pool'
+import { ASSET_LIST, ASSETS, type AssetSymbol } from '@/lib/pool'
 import { liquidationPrice, project } from '@/lib/risk'
 import type { PoolState, UserState } from '@/hooks/usePool'
 
@@ -6,24 +6,31 @@ const usd = (n: number, digits = 2) => `$${n.toLocaleString('en-US', { minimumFr
 
 /** Liquidation price and projected earnings for the connected wallet, from live balances and rates. */
 export function Insights({ pool, user }: { pool: PoolState; user: UserState }) {
-  const eurc = Number(pool.eurc8) / 1e8
-  const units = (raw: bigint) => Number(raw) / 1e6
-  const price = (s: AssetSymbol) => (s === 'USDC' ? 1 : eurc)
+  const units = (raw: bigint, symbol: AssetSymbol) => Number(raw) / 10 ** ASSETS[symbol].decimals
+  const price = (s: AssetSymbol) => Number(pool.prices[s]) / 1e8
 
-  const liq = liquidationPrice({
-    suppliedUsdc: units(user.assets.USDC.supplied),
-    suppliedEurc: units(user.assets.EURC.supplied),
-    debtUsdc: units(user.assets.USDC.debt),
-    debtEurc: units(user.assets.EURC.debt),
-    thresholdUsdc: Number(pool.reserves.USDC.liquidationThreshold) / 10_000,
-    thresholdEurc: Number(pool.reserves.EURC.liquidationThreshold) / 10_000,
-    price: eurc,
-  })
+  const rows = ASSET_LIST.map((a) => ({
+    suppliedUsd: units(user.assets[a.symbol].supplied, a.symbol) * price(a.symbol),
+    debtUsd: units(user.assets[a.symbol].debt, a.symbol) * price(a.symbol),
+    threshold: Number(pool.reserves[a.symbol].liquidationThreshold) / 10_000,
+  }))
+
+  // Show the liquidation price of the volatile asset this wallet has the most exposure to.
+  const volatile: AssetSymbol[] = ['cirBTC', 'EURC']
+  const exposure = (s: AssetSymbol) => {
+    const r = rows[ASSET_LIST.findIndex((a) => a.symbol === s)]
+    return r.suppliedUsd + r.debtUsd
+  }
+  const focus = volatile.reduce((best, s) => (exposure(s) > exposure(best) ? s : best), 'EURC' as AssetSymbol)
+  const focusPrice = price(focus)
+  const focusDigits = focus === 'cirBTC' ? 0 : 4
+
+  const liq = liquidationPrice({ rows, target: ASSET_LIST.findIndex((a) => a.symbol === focus), price: focusPrice })
 
   const projection = project(
     ASSET_LIST.map((a) => ({
-      supplyUsd: units(user.assets[a.symbol].supplied) * price(a.symbol),
-      debtUsd: units(user.assets[a.symbol].debt) * price(a.symbol),
+      supplyUsd: units(user.assets[a.symbol].supplied, a.symbol) * price(a.symbol),
+      debtUsd: units(user.assets[a.symbol].debt, a.symbol) * price(a.symbol),
       supplyApr: Number(pool.reserves[a.symbol].supplyRateApr) / 1e18,
       borrowApr: Number(pool.reserves[a.symbol].borrowRateApr) / 1e18,
     })),
@@ -31,12 +38,12 @@ export function Insights({ pool, user }: { pool: PoolState; user: UserState }) {
 
   const hasDebt = user.debtUsd8 > 0n
   const hasAny = hasDebt || user.collateralUsd8 > 0n
-  if (!hasAny || eurc === 0) return null
+  if (!hasAny || focusPrice === 0) return null
 
   return (
     <div className="mb-6 grid gap-3 md:grid-cols-2">
       <section className="card p-5">
-        <div className="label">EURC liquidation price</div>
+        <div className="label">{focus} liquidation price</div>
         {!hasDebt ? (
           <p className="mt-2 text-sm" style={{ color: 'var(--muted)' }}>
             You have no debt, so nothing can be liquidated.
@@ -44,19 +51,19 @@ export function Insights({ pool, user }: { pool: PoolState; user: UserState }) {
         ) : liq ? (
           <>
             <div className="display num mt-1.5 text-3xl font-semibold" style={{ color: Math.abs(liq.distance) < 0.1 ? 'var(--danger)' : 'var(--ink)' }}>
-              {usd(liq.price, 4)}
+              {usd(liq.price, focusDigits)}
             </div>
             <p className="mt-1 text-sm" style={{ color: 'var(--muted)' }}>
-              If EURC goes {liq.direction} this price your health factor drops under 1. That is{' '}
+              If {focus} goes {liq.direction} this price your health factor drops under 1. That is{' '}
               <span className="num font-semibold" style={{ color: 'var(--ink-2)' }}>
                 {Math.abs(liq.distance * 100).toFixed(1)}%
               </span>{' '}
-              {liq.distance < 0 ? 'below' : 'above'} today's {usd(eurc, 4)}.
+              {liq.distance < 0 ? 'below' : 'above'} today's {usd(focusPrice, focusDigits)}.
             </p>
           </>
         ) : (
           <p className="mt-2 text-sm" style={{ color: 'var(--muted)' }}>
-            Moves in the EURC price alone cannot push you under a health factor of 1 right now.
+            Moves in the {focus} price alone cannot push you under a health factor of 1 right now.
           </p>
         )}
       </section>

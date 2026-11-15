@@ -8,7 +8,7 @@ This is the **project memory** - what Arc Studio remembers about building this a
 
 ## What This App Does
 
-A two-asset (USDC and EURC) money market on Arc Testnet: earn, borrow, swap, bridge and positions pages. Supplies are collateral for borrowing. EURC/USD and USDC/USD prices come from Chainlink-compatible feeds (no owner price setter).
+A three-asset (USDC, EURC and cirBTC) money market on Arc Testnet: earn, borrow, swap, bridge and positions pages. Supplies are collateral for borrowing. EURC/USD and USDC/USD prices come from Chainlink-compatible feeds (no owner price setter).
 
 ## Tech Stack
 
@@ -45,9 +45,10 @@ bun run dev
 
 ## Deployed contracts
 
-- OrynPool (market) on Arc Testnet: `0x0fbd3b837e062f1f4d8f70c7952b8384e4816ab3` (current). Constructor: (owner, usdc, eurc, usdcUsdFeed, eurcUsdFeed). Prices are read from AggregatorV3 feeds; borrow, liquidate and withdraw-with-debt revert when either feed is older than maxPriceAge (2 days default) or invalid. Owner is the shared platform deployer wallet (can pause, queue risk params, setMaxPriceAge).
-  - Feeds on Arc Testnet are MirrorAggregator contracts (testnet has no Chainlink feeds): EURC/USD `0xc7f9471f68b473058260ec35d11d3914e1e5316f`, USDC/USD `0x9079cfc19553b44d724c92e4aa8b9c41d2f12c6b`. They relay the Arc mainnet Chainlink proxies (EURC/USD `0x361b95c10b76Ca3f35C686d423e43A951755Bf23`, USDC/USD `0x84EA90AC252Dc437031461836DB5164219147905`) with the original Chainlink timestamps. Updater is the relayer account whose key is `RELAYER_PRIVATE_KEY` in `.env` (never print it). Run `bun run relay:price -- --watch` to keep them fresh; if it stops for over ~2 days minus Chainlink's 24h heartbeat, borrowing and liquidations pause. For mainnet, pass the real Chainlink proxies to the pool constructor instead of mirrors.
-  - Earlier pools (`0xce5103b59952bf9a7848f55ab3f60a121ffd43c0` and older) are unused.
+- OrynPool (market) on Arc Testnet: `0x84b8d4ba692aa57250c0bd99d8080529fd81825e` (current, three assets: USDC, EURC, cirBTC). Constructor: (owner, usdc, eurc, cirBtc, usdcUsdFeed, eurcUsdFeed, btcUsdFeed). cirBTC is `0xf0C4a4CE82A5746AbAAd9425360Ab04fbBA432BF` (8 decimals; no public faucet). All prices are read from AggregatorV3 feeds; borrow, liquidate and withdraw-with-debt revert when any feed is older than maxPriceAge (2 days default, one shared limit) or invalid. Owner is the shared platform deployer wallet.
+  - Known open review items (not fixed): tiny positions (about 1 satoshi) can be impossible to liquidate; one shared price age limit for all three feeds.
+  - Feeds on Arc Testnet are MirrorAggregator contracts (testnet has no Chainlink feeds): EURC/USD `0xc7f9471f68b473058260ec35d11d3914e1e5316f`, USDC/USD `0x9079cfc19553b44d724c92e4aa8b9c41d2f12c6b`, BTC/USD `0x2ccf7c5c2681fee5ebc309827b9a1d481218bfd3`. They relay the Arc mainnet Chainlink proxies (EURC/USD `0x361b95c10b76Ca3f35C686d423e43A951755Bf23`, USDC/USD `0x84EA90AC252Dc437031461836DB5164219147905`, BTC/USD `0xa109B535C70C8Be9995be64Bb6751AcDB27e03De`) with the original Chainlink timestamps. Updater is the relayer account whose key is `RELAYER_PRIVATE_KEY` in `.env` (never print it). Run `bun run relay:price -- --watch` to keep them fresh. For mainnet, pass the real Chainlink proxies to the pool constructor instead of mirrors.
+  - Earlier pools (`0x0fbd3b837e062f1f4d8f70c7952b8384e4816ab3` and older) are unused.
 - Frontend reads `VITE_LENDING_POOL_ADDRESS` and `VITE_EURC_ADDRESS` from `.env`.
 
 ## Auth and routing

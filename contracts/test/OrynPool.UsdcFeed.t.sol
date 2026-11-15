@@ -22,10 +22,11 @@ contract OrynPoolUsdcFeedTest is OrynPoolTestBase {
         revert("no Liquidation event");
     }
 
-    /// @dev Relays a fresh EURC round at "now" without touching the USDC feed.
+    /// @dev Relays a fresh EURC (and BTC) round at "now" without touching the USDC feed.
     function _refreshEurcOnly() internal {
         vm.prank(updater);
         feed.pushRound(int256(PRICE), block.timestamp, ++srcRound);
+        btcFeed.setRound(int256(btcPriceNow), block.timestamp);
         lastPushTs = block.timestamp;
     }
 
@@ -36,28 +37,28 @@ contract OrynPoolUsdcFeedTest is OrynPoolTestBase {
     // ================================================================ constructor / state
     function test_Constructor_ZeroUsdcFeedReverts() public {
         vm.expectRevert(OrynPool.ZeroAddress.selector);
-        new OrynPool(owner, address(usdc), address(eurc), address(0), address(feed));
+        new OrynPool(owner, address(usdc), address(eurc), address(cirbtc), address(0), address(feed), address(btcFeed));
         vm.expectRevert(OrynPool.ZeroAddress.selector);
-        new OrynPool(owner, address(usdc), address(eurc), address(usdcFeed), address(0));
+        new OrynPool(owner, address(usdc), address(eurc), address(cirbtc), address(usdcFeed), address(0), address(btcFeed));
     }
 
     function test_Constructor_UsdcFeedDecimalsAbove18Reverts() public {
         MockAggregator bad = new MockAggregator(19);
         vm.expectRevert(OrynPool.InvalidPrice.selector);
-        new OrynPool(owner, address(usdc), address(eurc), address(bad), address(feed));
+        new OrynPool(owner, address(usdc), address(eurc), address(cirbtc), address(bad), address(feed), address(btcFeed));
         MockAggregator ok = new MockAggregator(18);
-        OrynPool p = new OrynPool(owner, address(usdc), address(eurc), address(ok), address(feed));
+        OrynPool p = new OrynPool(owner, address(usdc), address(eurc), address(cirbtc), address(ok), address(feed), address(btcFeed));
         assertEq(p.usdcFeedDecimals(), 18);
     }
 
     function test_Constructor_UsdcFeedWithoutCodeReverts() public {
         vm.expectRevert();
-        new OrynPool(owner, address(usdc), address(eurc), makeAddr("notAFeed"), address(feed));
+        new OrynPool(owner, address(usdc), address(eurc), address(cirbtc), makeAddr("notAFeed"), address(feed), address(btcFeed));
     }
 
     function test_Constructor_DoesNotRequireUsdcInitialRound() public {
         MockAggregator empty = new MockAggregator(8); // never given a round: timestamp 0
-        OrynPool p = new OrynPool(owner, address(usdc), address(eurc), address(empty), address(feed));
+        OrynPool p = new OrynPool(owner, address(usdc), address(eurc), address(cirbtc), address(empty), address(feed), address(btcFeed));
         assertFalse(p.isPriceFresh());
         assertEq(p.usdcPriceUpdatedAt(), 0);
         assertEq(p.priceUpdatedAt(), 0);
@@ -159,14 +160,14 @@ contract OrynPoolUsdcFeedTest is OrynPoolTestBase {
 
         assertApproxEqAbs(repaid, debtBefore / 2, 2);
         assertEq(liqEurc - eurc.balanceOf(liq), repaid);
-        // seized = repaid * pEURC / pUSDC * 1.05, rounded up twice; pUSDC is the depegged 0.90
-        assertEq(seized, _ceil(_ceil(repaid, PRICE, DEPEG), 10_500, 10_000));
+        // seized = repaid * pEURC / pUSDC * 1.05, single floor; pUSDC is the depegged 0.90
+        assertEq(seized, _seizeFloor(repaid, PRICE, DEPEG, 1e6, 1e6, 500));
         assertTrue(paid);
         assertEq(usdc.balanceOf(liq) - liqUsdc, seized);
         assertApproxEqAbs(supplyBefore - pool.supplyBalanceOf(address(usdc), bob), seized, 1);
         assertApproxEqAbs(pool.debtBalanceOf(address(eurc), bob), debtBefore - repaid, 1);
         // a depegged USDC seizes MORE USDC than at par for the same repayment
-        assertGt(seized, _ceil(_ceil(repaid, PRICE, USDC_PRICE), 10_500, 10_000));
+        assertGt(seized, _seizeFloor(repaid, PRICE, USDC_PRICE, 1e6, 1e6, 500));
     }
 
     function test_Depeg_RepegRestoresHealth() public {
@@ -213,7 +214,7 @@ contract OrynPoolUsdcFeedTest is OrynPoolTestBase {
         pool.liquidate(bob, address(usdc), address(eurc), 800 * M);
         (uint256 repaid, uint256 seized, bool paid) = _lastLiquidation();
         assertApproxEqAbs(repaid, debtBefore / 2, 2);
-        assertEq(seized, _ceil(_ceil(repaid, 115_000_000, PRICE), 10_500, 10_000));
+        assertEq(seized, _seizeFloor(repaid, 115_000_000, PRICE, 1e6, 1e6, 500));
         assertTrue(paid);
     }
 
@@ -373,7 +374,7 @@ contract OrynPoolUsdcFeedTest is OrynPoolTestBase {
     function _poolWithUsdcFeed(uint8 dec, int256 answer) internal returns (OrynPool p, MockAggregator m) {
         m = new MockAggregator(dec);
         m.setRound(answer, block.timestamp);
-        p = new OrynPool(owner, address(usdc), address(eurc), address(m), address(feed));
+        p = new OrynPool(owner, address(usdc), address(eurc), address(cirbtc), address(m), address(feed), address(btcFeed));
         _fund(p);
     }
 

@@ -64,8 +64,8 @@ contract OrynPoolLiquidationTest is OrynPoolTestBase {
         assertEq(liqEurc - eurc.balanceOf(liq), repaid);
         assertApproxEqAbs(pool.debtBalanceOf(address(eurc), bob), debtBefore - repaid, 1);
 
-        // seized = repaid * price(EURC)/price(USDC) * 1.05, rounded up twice
-        uint256 expected = _ceil(_ceil(repaid, P2, 1e8), 10_500, 10_000);
+        // seized = floor(repaid * price(EURC) * 10,500 / (price(USDC) * 10,000)), single floor rounding
+        uint256 expected = _seizeFloor(repaid, P2, 1e8, 1e6, 1e6, 500);
         assertEq(seized, expected);
         assertTrue(paid);
         assertEq(usdc.balanceOf(liq) - liqUsdc, seized); // paid in underlying USDC
@@ -137,7 +137,7 @@ contract OrynPoolLiquidationTest is OrynPoolTestBase {
 
         assertLe(repaid, debtBefore / 2 + 1);
         assertGe(repaid, debtBefore / 2 - 1);
-        assertEq(seized, _ceil(_ceil(repaid, 1e8, pLow), 10_500, 10_000));
+        assertEq(seized, _seizeFloor(repaid, 1e8, pLow, 1e6, 1e6, 500));
         assertTrue(paid);
         assertEq(eurc.balanceOf(liq) - liqEurc, seized);
     }
@@ -174,7 +174,7 @@ contract OrynPoolLiquidationTest is OrynPoolTestBase {
         (uint256 repaid, uint256 seized, bool paid) = _lastLiquidation();
 
         assertApproxEqAbs(repaid, 200 * M, 1);
-        assertEq(seized, _ceil(_ceil(repaid, 1e8, pDrop), 10_500, 10_000)); // 233.33 EURC incl. 5% bonus
+        assertEq(seized, _seizeFloor(repaid, 1e8, pDrop, 1e6, 1e6, 500)); // 233.33 EURC incl. 5% bonus
         assertTrue(paid);
         assertEq(liqUsdc - usdc.balanceOf(liq), repaid);
         assertEq(eurc.balanceOf(liq) - liqEurc, seized);
@@ -202,7 +202,7 @@ contract OrynPoolLiquidationTest is OrynPoolTestBase {
         _borrow(bob, usdc, 800 * M);
         skip(1 hours);
         _setPrice(90_000_000);
-        uint256 pushedAt = block.timestamp;
+        uint256 pushedAt = lastPushTs;
 
         skip(2 days + 1); // feed heartbeat missed
         vm.prank(liq);
@@ -239,7 +239,7 @@ contract OrynPoolLiquidationTest is OrynPoolTestBase {
         (uint256 repaid, uint256 seized, bool paid) = _lastLiquidation();
 
         assertFalse(paid);
-        assertEq(seized, _ceil(_ceil(repaid, P2, 1e8), 10_500, 10_000));
+        assertEq(seized, _seizeFloor(repaid, P2, 1e8, 1e6, 1e6, 500));
         assertGt(seized, poolUsdc); // cash really was insufficient
         // no underlying moved
         assertEq(usdc.balanceOf(liq), liqUsdcWallet);

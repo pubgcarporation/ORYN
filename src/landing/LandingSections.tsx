@@ -31,7 +31,7 @@ function Section({ id, eyebrow, title, children }: { id?: string; eyebrow: strin
 
 export function StatsStrip({ pool }: { pool: PoolState }) {
   const sum = (pick: 'totalSupplied' | 'totalBorrowed' | 'availableLiquidity') =>
-    ASSET_LIST.reduce((acc, a) => acc + valueUsd8(pool.reserves[a.symbol][pick], a.symbol, pool.eurc8), 0n)
+    ASSET_LIST.reduce((acc, a) => acc + valueUsd8(pool.reserves[a.symbol][pick], a.symbol, pool.prices), 0n)
   const items = [
     { label: 'Total supplied', value: sum('totalSupplied') },
     { label: 'Total borrowed', value: sum('totalBorrowed') },
@@ -84,7 +84,7 @@ export function Markets({ pool }: { pool: PoolState }) {
                   <Cell label="Max LTV" value={pool.loaded ? fmtBps(r.ltv) : '...'} />
                 </dl>
                 <div className="mt-4 text-xs" style={{ color: 'var(--subtle)' }}>
-                  {pool.loaded ? `${fmtUsd8(valueUsd8(r.totalSupplied, a.symbol, pool.eurc8))} supplied` : 'Loading market'}
+                  {pool.loaded ? `${fmtUsd8(valueUsd8(r.totalSupplied, a.symbol, pool.prices))} supplied` : 'Loading market'}
                 </div>
               </Link>
             </motion.div>
@@ -107,7 +107,7 @@ function Cell({ label, value, tone }: { label: string; value: string; tone?: str
 }
 
 const FEATURES = [
-  { icon: PiggyBank, title: 'Earn on idle stablecoins', text: 'Supply USDC or EURC and earn a variable rate that moves with demand.' },
+  { icon: PiggyBank, title: 'Earn on idle stablecoins', text: 'Supply USDC, EURC or cirBTC and earn a variable rate that moves with demand.' },
   { icon: Landmark, title: 'Borrow against deposits', text: 'Every deposit is collateral. Preview your health factor before you sign.' },
   { icon: Repeat, title: 'Swap USDC and EURC', text: 'Trade between the two assets without leaving the app.' },
   { icon: ArrowLeftRight, title: 'Bridge USDC in', text: 'Move USDC from Ethereum, Base, Arbitrum or Polygon test networks with native burn and mint.' },
@@ -137,7 +137,7 @@ export function Features() {
 
 const STEPS = [
   { icon: Wallet, title: 'Sign in', text: 'Use Google or connect a wallet. Add test USDC from the faucet.' },
-  { icon: PiggyBank, title: 'Supply', text: 'Deposit USDC or EURC. You start earning right away and unlock borrowing power.' },
+  { icon: PiggyBank, title: 'Supply', text: 'Deposit USDC, EURC or cirBTC. You start earning right away and unlock borrowing power.' },
   { icon: Landmark, title: 'Borrow or swap', text: 'Borrow up to your limit, swap, or bridge. Keep your health factor above 1.' },
 ]
 
@@ -166,7 +166,7 @@ export function Transparency() {
   const points = [
     { icon: Scale, title: 'Clear liquidation rules', text: 'If a position falls below a health factor of 1, a liquidator can repay up to half the debt and receive a 5% bonus.' },
     { icon: LockKeyhole, title: 'Caps and a pause switch', text: 'Markets support supply and borrow caps, and new borrowing can be paused while repayments and withdrawals stay open.' },
-    { icon: Zap, title: 'Chainlink prices', text: 'EURC and USDC are priced from Chainlink feeds, and borrowing and liquidations pause if a price goes stale. On testnet the Arc mainnet Chainlink prices are relayed onto the testnet feeds.' },
+    { icon: Zap, title: 'Chainlink prices', text: 'USDC, EURC and cirBTC are priced from Chainlink feeds, and borrowing and liquidations pause if a price goes stale. On testnet the Arc mainnet Chainlink prices are relayed onto the testnet feeds.' },
   ]
   return (
     <Section id="security" eyebrow="Transparency" title="Know exactly what you are using">

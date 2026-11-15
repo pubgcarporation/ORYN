@@ -1,15 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { animate, useReducedMotion } from 'framer-motion'
 import { Check, Copy, Droplets } from 'lucide-react'
-import { TokenEURC, TokenUSDC } from '@web3icons/react'
+import { TokenBTC, TokenEURC, TokenUSDC } from '@web3icons/react'
 import type { AssetSymbol } from '@/lib/pool'
 
 export function TokenBadge({ symbol, size = 32 }: { symbol: AssetSymbol; size?: number }) {
-  return symbol === 'USDC' ? (
-    <TokenUSDC variant="branded" size={size} />
-  ) : (
-    <TokenEURC variant="branded" size={size} />
-  )
+  if (symbol === 'USDC') return <TokenUSDC variant="branded" size={size} />
+  if (symbol === 'cirBTC') return <TokenBTC variant="branded" size={size} />
+  return <TokenEURC variant="branded" size={size} />
 }
 
 export function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {

@@ -44,36 +44,36 @@ contract OrynPoolAdminTest is OrynPoolTestBase {
         address f = address(feed);
         address uf = address(usdcFeed);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableInvalidOwner.selector, address(0)));
-        new OrynPool(address(0), address(usdc), address(eurc), uf, f);
+        new OrynPool(address(0), address(usdc), address(eurc), address(cirbtc), uf, f, address(btcFeed));
         vm.expectRevert(OrynPool.ZeroAddress.selector);
-        new OrynPool(owner, address(0), address(eurc), uf, f);
+        new OrynPool(owner, address(0), address(eurc), address(cirbtc), uf, f, address(btcFeed));
         vm.expectRevert(OrynPool.ZeroAddress.selector);
-        new OrynPool(owner, address(usdc), address(0), uf, f);
+        new OrynPool(owner, address(usdc), address(0), address(cirbtc), uf, f, address(btcFeed));
         vm.expectRevert(OrynPool.ZeroAddress.selector);
-        new OrynPool(owner, address(usdc), address(eurc), uf, address(0));
+        new OrynPool(owner, address(usdc), address(eurc), address(cirbtc), uf, address(0), address(btcFeed));
         vm.expectRevert(OrynPool.ZeroAddress.selector);
-        new OrynPool(owner, address(usdc), address(eurc), address(0), f);
+        new OrynPool(owner, address(usdc), address(eurc), address(cirbtc), address(0), f, address(btcFeed));
         vm.expectRevert(OrynPool.IdenticalAssets.selector);
-        new OrynPool(owner, address(usdc), address(usdc), uf, f);
+        new OrynPool(owner, address(usdc), address(usdc), address(cirbtc), uf, f, address(btcFeed));
         // a feed address with no code cannot answer decimals()
         vm.expectRevert();
-        new OrynPool(owner, address(usdc), address(eurc), uf, makeAddr("notAFeed"));
+        new OrynPool(owner, address(usdc), address(eurc), address(cirbtc), uf, makeAddr("notAFeed"), address(btcFeed));
         vm.expectRevert();
-        new OrynPool(owner, address(usdc), address(eurc), makeAddr("notAFeed"), f);
+        new OrynPool(owner, address(usdc), address(eurc), address(cirbtc), makeAddr("notAFeed"), f, address(btcFeed));
     }
 
     function test_Constructor_FeedDecimalsAbove18Reverts() public {
         MirrorAggregator bad = new MirrorAggregator(owner, updater, 19, "bad");
         vm.expectRevert(OrynPool.InvalidPrice.selector);
-        new OrynPool(owner, address(usdc), address(eurc), address(usdcFeed), address(bad));
+        new OrynPool(owner, address(usdc), address(eurc), address(cirbtc), address(usdcFeed), address(bad), address(btcFeed));
         MirrorAggregator ok = new MirrorAggregator(owner, updater, 18, "ok");
-        OrynPool p = new OrynPool(owner, address(usdc), address(eurc), address(usdcFeed), address(ok));
+        OrynPool p = new OrynPool(owner, address(usdc), address(eurc), address(cirbtc), address(usdcFeed), address(ok), address(btcFeed));
         assertEq(p.feedDecimals(), 18);
     }
 
     function test_Constructor_DoesNotRequireInitialRound() public {
         MirrorAggregator empty = new MirrorAggregator(owner, updater, 8, "empty");
-        OrynPool p = new OrynPool(owner, address(usdc), address(eurc), address(usdcFeed), address(empty));
+        OrynPool p = new OrynPool(owner, address(usdc), address(eurc), address(cirbtc), address(usdcFeed), address(empty), address(btcFeed));
         assertFalse(p.isPriceFresh());
     }
 
