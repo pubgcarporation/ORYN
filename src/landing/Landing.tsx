@@ -17,7 +17,7 @@ export function Landing() {
   return (
     <MotionConfig reducedMotion="user">
       <div className="min-h-dvh">
-        <header className="safe-top sticky top-0 z-40 border-b" style={{ borderColor: 'var(--border)', background: 'rgba(13,27,47,0.75)', backdropFilter: 'blur(16px)' }}>
+        <header className="safe-top sticky top-0 z-40 border-b" style={{ borderColor: 'var(--border)', background: 'var(--panel)', backdropFilter: 'blur(16px)' }}>
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2.5 sm:py-3">
             <Link to="/" aria-label="ORYN home" className="rounded-lg">
               <Logo />

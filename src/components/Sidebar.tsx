@@ -13,7 +13,7 @@ export function Sidebar({ active }: { active: Tab }) {
   return (
     <aside
       className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r px-3 pb-4 pt-5 md:flex"
-      style={{ borderColor: 'var(--border)', background: 'rgba(13,27,47,0.92)', backdropFilter: 'blur(16px)' }}
+      style={{ borderColor: 'var(--border)', background: 'var(--panel)', backdropFilter: 'blur(16px)' }}
       aria-label="Sidebar"
     >
       <Link to="/" aria-label="ORYN home" className="mb-8 rounded-lg px-3">

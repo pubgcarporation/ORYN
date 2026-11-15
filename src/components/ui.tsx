@@ -66,7 +66,7 @@ export function FundWallet({ address }: { address: string }) {
     }
   }
   return (
-    <div className="card mb-6 flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between" style={{ borderColor: 'rgba(172,198,233,0.35)' }}>
+    <div className="card mb-6 flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between" style={{ borderColor: 'rgba(185,166,255,0.35)' }}>
       <div className="flex items-start gap-3">
         <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl" style={{ background: 'var(--surface-strong)' }}>
           <Droplets className="size-4" style={{ color: 'var(--accent)' }} />

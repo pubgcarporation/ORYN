@@ -308,21 +308,21 @@ export function SwapPage() {
         )}
 
         {badPrice && (
-          <p className="mt-3 flex items-start gap-2 rounded-xl p-3 text-xs" style={{ background: 'rgba(240,198,116,0.1)', color: 'var(--warn)' }}>
+          <p className="mt-3 flex items-start gap-2 rounded-xl p-3 text-xs" style={{ background: 'rgba(245,197,107,0.1)', color: 'var(--warn)' }}>
             <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
             This quote is {impact?.toFixed(1)}% below the Chainlink price. Liquidity on testnet can be thin, so try a smaller amount.
           </p>
         )}
 
         {error && (
-          <div role="alert" className="mt-3 flex items-start gap-2 rounded-xl p-3 text-xs" style={{ background: 'rgba(232,109,122,0.1)', color: 'var(--danger)' }}>
+          <div role="alert" className="mt-3 flex items-start gap-2 rounded-xl p-3 text-xs" style={{ background: 'rgba(255,122,138,0.1)', color: 'var(--danger)' }}>
             <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
         {result && (
-          <div role="status" className="mt-3 flex items-start gap-2 rounded-xl p-3 text-sm" style={{ background: 'rgba(141,216,159,0.1)', color: 'var(--success)' }}>
+          <div role="status" className="mt-3 flex items-start gap-2 rounded-xl p-3 text-sm" style={{ background: 'rgba(94,224,138,0.1)', color: 'var(--success)' }}>
             <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
             <span>
               Swapped {result.amountIn} {result.tokenIn} for {result.amountOut ?? 'your tokens'} {result.tokenOut}.

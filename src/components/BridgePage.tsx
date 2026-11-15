@@ -232,7 +232,7 @@ export function BridgePage() {
         {busy && <StepProgress reached={reached} />}
 
         {error && (
-          <div role="alert" className="mt-3 flex items-start gap-2 rounded-xl p-3 text-xs" style={{ background: 'rgba(232,109,122,0.1)', color: 'var(--danger)' }}>
+          <div role="alert" className="mt-3 flex items-start gap-2 rounded-xl p-3 text-xs" style={{ background: 'rgba(255,122,138,0.1)', color: 'var(--danger)' }}>
             <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
             <span>{error}</span>
           </div>

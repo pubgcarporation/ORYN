@@ -43,7 +43,7 @@ export function OracleCard({ pool }: { pool: PoolState }) {
         </div>
         <span
           className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold"
-          style={{ background: fresh ? 'rgba(141,216,159,0.12)' : 'rgba(240,198,116,0.12)', color: fresh ? 'var(--success)' : 'var(--warn)' }}
+          style={{ background: fresh ? 'rgba(94,224,138,0.12)' : 'rgba(245,197,107,0.12)', color: fresh ? 'var(--success)' : 'var(--warn)' }}
         >
           <ShieldCheck className="size-3.5" /> {fresh ? 'Fresh' : 'Stale'}
         </span>

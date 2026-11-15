@@ -5,8 +5,8 @@
   "start_url": "/app/markets",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#0d1b2f",
-  "theme_color": "#0d1b2f",
+  "background_color": "#07060d",
+  "theme_color": "#07060d",
   "icons": [
     {
       "src": "/icon-192.png",

@@ -172,7 +172,7 @@ export function ActionSheet({ action, symbol, pool, user, onClose }: Props) {
           aria-modal="true"
           aria-label={`${TITLES[action]} ${symbol}`}
           className="card safe-bottom relative max-h-[92dvh] w-full max-w-md overflow-y-auto overscroll-contain rounded-b-none p-5 pt-3 sm:rounded-3xl"
-          style={{ background: 'rgba(18,36,58,0.98)' }}
+          style={{ background: 'var(--panel-solid)' }}
           initial={{ y: 60, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 380, damping: 34 }}
@@ -352,7 +352,7 @@ function Row({ label, value, tone }: { label: string; value: string; tone?: 'non
 
 function Notice({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-start gap-2 rounded-xl p-3 text-xs" style={{ background: 'rgba(240,198,116,0.1)', color: 'var(--warn)' }}>
+    <div className="flex items-start gap-2 rounded-xl p-3 text-xs" style={{ background: 'rgba(245,197,107,0.1)', color: 'var(--warn)' }}>
       <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
       <span>{children}</span>
     </div>

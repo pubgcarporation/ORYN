@@ -59,8 +59,8 @@ export function StatsStrip({ pool }: { pool: PoolState }) {
 
 export function Markets({ pool }: { pool: PoolState }) {
   return (
-    <Section id="markets" eyebrow="Markets" title="Two stablecoin markets, one pool of collateral">
-      <div className="grid gap-4 md:grid-cols-2">
+    <Section id="markets" eyebrow="Markets" title="Three markets, one pool of collateral">
+      <div className="grid gap-4 md:grid-cols-3">
         {ASSET_LIST.map((a, i) => {
           const r = pool.reserves[a.symbol]
           return (
@@ -109,7 +109,7 @@ function Cell({ label, value, tone }: { label: string; value: string; tone?: str
 const FEATURES = [
   { icon: PiggyBank, title: 'Earn on idle stablecoins', text: 'Supply USDC, EURC or cirBTC and earn a variable rate that moves with demand.' },
   { icon: Landmark, title: 'Borrow against deposits', text: 'Every deposit is collateral. Preview your health factor before you sign.' },
-  { icon: Repeat, title: 'Swap USDC and EURC', text: 'Trade between the two assets without leaving the app.' },
+  { icon: Repeat, title: 'Swap in one place', text: 'Trade USDC, EURC and cirBTC with live quotes and a slippage limit you control.' },
   { icon: ArrowLeftRight, title: 'Bridge USDC in', text: 'Move USDC from Ethereum, Base, Arbitrum or Polygon test networks with native burn and mint.' },
   { icon: UserRound, title: 'Sign in with Google', text: 'Start with an email login and a wallet created for you, or bring your own wallet.' },
   { icon: Zap, title: 'Fees in USDC', text: 'Arc uses USDC for network fees, so one asset covers everything you do here.' },
@@ -164,9 +164,9 @@ export function HowItWorks() {
 
 export function Transparency() {
   const points = [
-    { icon: Scale, title: 'Clear liquidation rules', text: 'If a position falls below a health factor of 1, a liquidator can repay up to half the debt and receive a 5% bonus.' },
+    { icon: Scale, title: 'Clear liquidation rules', text: 'If a position falls below a health factor of 1, a liquidator can repay up to half the debt and receive a bonus of 5% (8% for cirBTC).' },
     { icon: LockKeyhole, title: 'Caps and a pause switch', text: 'Markets support supply and borrow caps, and new borrowing can be paused while repayments and withdrawals stay open.' },
-    { icon: Zap, title: 'Chainlink prices', text: 'USDC, EURC and cirBTC are priced from Chainlink feeds, and borrowing and liquidations pause if a price goes stale. On testnet the Arc mainnet Chainlink prices are relayed onto the testnet feeds.' },
+    { icon: Zap, title: 'Chainlink prices', text: 'USDC, EURC and cirBTC are priced from Chainlink feeds, and borrowing and liquidations pause if a price goes stale. On testnet the Arc mainnet Chainlink prices are relayed onto testnet feeds, so the testnet price source is a relay, not Chainlink itself.' },
   ]
   return (
     <Section id="security" eyebrow="Transparency" title="Know exactly what you are using">
@@ -198,7 +198,7 @@ export function FinalCta() {
   return (
     <section className="mx-auto max-w-6xl px-4 pb-20">
       <motion.div {...reveal} className="card relative overflow-hidden p-7 text-center sm:p-14">
-        <div className="glow left-1/2 top-0 size-72 -translate-x-1/2 bg-[#acc6e9]/20" aria-hidden="true" />
+        <div className="glow left-1/2 top-0 size-72 -translate-x-1/2 bg-[#8f78ff]/25" aria-hidden="true" />
         <h2 className="display text-gradient relative text-balance text-3xl font-semibold sm:text-5xl">Put your stablecoins to work.</h2>
         <p className="relative mx-auto mt-4 max-w-md text-pretty" style={{ color: 'var(--muted)' }}>
           Open the app, sign in, and make your first deposit on Arc Testnet.

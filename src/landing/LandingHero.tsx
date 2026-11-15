@@ -1,16 +1,16 @@
 import { motion } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
-import { ASSET_LIST, fmtApr, valueUsd8 } from '@/lib/pool'
+import { ASSET_LIST, fmtApr, fmtBps, valueUsd8 } from '@/lib/pool'
 import type { PoolState } from '@/hooks/usePool'
 import { Link } from '@/lib/router'
-import { CountUp, Skeleton, TokenBadge } from '@/components/ui'
+import { Skeleton, TokenBadge } from '@/components/ui'
 
 export function LandingHero({ pool }: { pool: PoolState }) {
   return (
     <section className="relative overflow-hidden">
       <div className="bg-grid absolute inset-0" aria-hidden="true" />
-      <div className="glow -left-24 top-10 size-96 bg-[#3b6ea5]/30" aria-hidden="true" />
-      <div className="glow -right-24 top-40 size-80 bg-[#acc6e9]/15" aria-hidden="true" />
+      <div className="glow -left-24 top-10 size-96 bg-[#8f78ff]/25" aria-hidden="true" />
+      <div className="glow -right-24 top-40 size-80 bg-[#b9a6ff]/15" aria-hidden="true" />
 
       <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-4 pb-14 pt-10 sm:pb-20 sm:pt-16 lg:grid-cols-[1.1fr_0.9fr] lg:pt-24">
         <div>
@@ -74,69 +74,66 @@ export function LandingHero({ pool }: { pool: PoolState }) {
 }
 
 function LiveMarkets({ pool }: { pool: PoolState }) {
-  const tvl = ASSET_LIST.reduce((sum, a) => sum + valueUsd8(pool.reserves[a.symbol].totalSupplied, a.symbol, pool.prices), 0n)
+  const sum = (pick: 'totalSupplied' | 'totalBorrowed') =>
+    ASSET_LIST.reduce((acc, a) => acc + valueUsd8(pool.reserves[a.symbol][pick], a.symbol, pool.prices), 0n)
+  const supplied = sum('totalSupplied')
+  const borrowed = sum('totalBorrowed')
+  const util = supplied > 0n ? Number((borrowed * 10000n) / supplied) / 100 : null
+  const usd = (v: bigint) => `$${(Number(v) / 1e8).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   return (
-    <div className="card p-5 shadow-2xl" style={{ boxShadow: '0 30px 80px -30px rgba(0,0,0,0.6)' }}>
-      <div className="flex items-end justify-between gap-3">
-        <div>
-          <div className="label">Total supplied</div>
-          <div className="display mt-1 text-3xl font-semibold sm:text-4xl">
-            {pool.loaded ? <CountUp value={Number(tvl) / 1e8} format={(n) => `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} /> : <Skeleton className="h-10 w-40" />}
-          </div>
+    <div className="card p-4 sm:p-5" style={{ boxShadow: '0 30px 80px -30px rgba(80,50,200,0.45), inset 0 1px 0 rgba(255,255,255,0.06)' }}>
+      <div className="inner p-4">
+        <div className="flex items-center justify-between text-xs font-semibold" style={{ color: 'var(--ink-2)' }}>
+          Protocol Overview
+          <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px]" style={{ background: 'rgba(94,224,138,0.12)', color: 'var(--success)' }}>
+            <span className="size-1.5 rounded-full" style={{ background: 'var(--success)' }} />
+            Live
+          </span>
         </div>
-        <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ background: 'rgba(141,216,159,0.12)', color: 'var(--success)' }}>
-          Live
-        </span>
+        <dl className="mt-3 grid grid-cols-3 divide-x divide-white/10">
+          <Overview label="Total Supplied" value={pool.loaded ? usd(supplied) : null} />
+          <Overview label="Total Borrowed" value={pool.loaded ? usd(borrowed) : null} />
+          <Overview label="Utilization" value={pool.loaded ? (util === null ? '\u2014' : `${util.toFixed(1)}%`) : null} />
+        </dl>
       </div>
 
-      <div className="mt-5 space-y-3">
+      <div className="mt-3 space-y-3">
         {ASSET_LIST.map((a) => {
           const r = pool.reserves[a.symbol]
-          const util = Math.min(100, Number(r.utilization / 10n ** 14n) / 100)
           return (
-            <div key={a.symbol} className="inner p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5">
-                  <TokenBadge symbol={a.symbol} size={30} />
-                  <div>
-                    <div className="display font-semibold">{a.symbol}</div>
-                    <div className="text-xs" style={{ color: 'var(--subtle)' }}>
-                      {a.name}
-                    </div>
+            <div key={a.symbol} className="inner flex items-center justify-between gap-3 p-4">
+              <div className="flex items-center gap-3">
+                <TokenBadge symbol={a.symbol} size={38} />
+                <div>
+                  <div className="display font-semibold">{a.symbol}</div>
+                  <div className="text-xs" style={{ color: 'var(--subtle)' }}>
+                    {a.name}
                   </div>
                 </div>
-                <div className="flex gap-5 text-right">
-                  <Rate label="Earn" value={pool.loaded ? fmtApr(r.supplyRateApr) : '...'} tone="var(--success)" />
-                  <Rate label="Borrow" value={pool.loaded ? fmtApr(r.borrowRateApr) : '...'} tone="var(--ink)" />
-                </div>
               </div>
-              <div className="mt-3">
-                <div className="mb-1 flex justify-between text-[11px]" style={{ color: 'var(--subtle)' }}>
-                  <span>Utilization</span>
-                  <span className="num">{util.toFixed(1)}%</span>
+              <div className="flex items-baseline gap-5 text-right">
+                <div className="num text-base font-semibold" style={{ color: 'var(--success)' }}>
+                  {pool.loaded ? fmtApr(r.supplyRateApr) : '...'} <span className="text-xs font-medium" style={{ color: 'var(--ink-2)' }}>APY</span>
                 </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
-                  <motion.div className="h-full rounded-full" style={{ background: 'var(--accent)' }} initial={{ width: 0 }} animate={{ width: `${util}%` }} transition={{ duration: 0.8 }} />
+                <div className="num min-w-16 text-base font-semibold">
+                  {pool.loaded ? fmtBps(r.ltv) : '...'} <span className="text-xs font-medium" style={{ color: 'var(--ink-2)' }}>LTV</span>
                 </div>
               </div>
             </div>
           )
         })}
       </div>
-      <p className="mt-4 text-center text-[11px]" style={{ color: 'var(--subtle)' }}>
-        Balances read live from the market contract. Prices come from Chainlink.
-      </p>
     </div>
   )
 }
 
-function Rate({ label, value, tone }: { label: string; value: string; tone: string }) {
+function Overview({ label, value }: { label: string; value: string | null }) {
   return (
-    <div>
-      <div className="display num text-lg font-semibold" style={{ color: tone }}>
-        {value}
-      </div>
-      <div className="label">{label}</div>
+    <div className="px-3 first:pl-0 last:pr-0">
+      <dd className="display num text-lg font-semibold sm:text-xl">{value ?? <Skeleton className="h-6 w-20" />}</dd>
+      <dt className="mt-0.5 text-[11px]" style={{ color: 'var(--subtle)' }}>
+        {label}
+      </dt>
     </div>
   )
 }

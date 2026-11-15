@@ -73,10 +73,10 @@ export function AnalyticsPage({ pool }: { pool: PoolState }) {
                 data={volumeData}
                 ariaLabel="Daily volume by action"
                 series={[
-                  { key: 'deposit', label: 'Deposits', color: '#8dd89f' },
-                  { key: 'borrow', label: 'Borrows', color: '#acc6e9' },
+                  { key: 'deposit', label: 'Deposits', color: '#5ee08a' },
+                  { key: 'borrow', label: 'Borrows', color: '#b9a6ff' },
                   { key: 'repay', label: 'Repaid', color: '#5f87b8' },
-                  { key: 'withdraw', label: 'Withdrawn', color: '#f0c674' },
+                  { key: 'withdraw', label: 'Withdrawn', color: '#f5c56b' },
                 ]}
               />
             )}
@@ -86,7 +86,7 @@ export function AnalyticsPage({ pool }: { pool: PoolState }) {
             <p className="mb-3 mt-0.5 text-xs" style={{ color: 'var(--subtle)' }}>
               Different wallets that used the pool each day.
             </p>
-            {isLoading || !pool.loaded ? <Skeleton className="h-52 w-full" /> : <StackedBars data={activeData} series={[{ key: 'users', label: 'Wallets', color: '#acc6e9' }]} format={(n) => String(Math.round(n))} ariaLabel="Active wallets per day" />}
+            {isLoading || !pool.loaded ? <Skeleton className="h-52 w-full" /> : <StackedBars data={activeData} series={[{ key: 'users', label: 'Wallets', color: '#b9a6ff' }]} format={(n) => String(Math.round(n))} ariaLabel="Active wallets per day" />}
           </section>
         </div>
       )}
@@ -174,7 +174,7 @@ function RiskMonitor({ events, loaded }: { events: ReturnType<typeof usePoolEven
             Open loans, closest to liquidation first. Health below 1.00 can be liquidated.
           </p>
         </div>
-        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold" style={liquidatable.length > 0 ? { background: 'rgba(232,109,122,0.12)', color: 'var(--danger)' } : atRisk.length > 0 ? { background: 'rgba(240,198,116,0.12)', color: 'var(--warn)' } : { background: 'rgba(141,216,159,0.12)', color: 'var(--success)' }}>
+        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold" style={liquidatable.length > 0 ? { background: 'rgba(255,122,138,0.12)', color: 'var(--danger)' } : atRisk.length > 0 ? { background: 'rgba(245,197,107,0.12)', color: 'var(--warn)' } : { background: 'rgba(94,224,138,0.12)', color: 'var(--success)' }}>
           {liquidatable.length > 0 || atRisk.length > 0 ? <AlertTriangle className="size-3.5" /> : <ShieldCheck className="size-3.5" />}
           {liquidatable.length > 0 ? `${liquidatable.length} liquidatable` : atRisk.length > 0 ? `${atRisk.length} at risk` : 'All healthy'}
         </span>

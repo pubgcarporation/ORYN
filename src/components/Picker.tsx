@@ -74,7 +74,7 @@ export function Picker<T extends string>({ title, value, options, onChange, disa
               aria-modal="true"
               aria-labelledby={titleId}
               className="card safe-bottom relative max-h-[80dvh] w-full max-w-sm overflow-y-auto rounded-b-none p-4 sm:rounded-3xl"
-              style={{ background: 'rgba(18,36,58,0.98)' }}
+              style={{ background: 'var(--panel-solid)' }}
               initial={{ y: 40, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 40, opacity: 0 }}

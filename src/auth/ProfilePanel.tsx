@@ -79,7 +79,7 @@ export function ProfilePanel({ address, open, onClose }: Props) {
             aria-modal="true"
             aria-label="Account"
             className="safe-top safe-bottom absolute inset-y-0 right-0 flex w-full max-w-sm flex-col overflow-y-auto border-l"
-            style={{ background: 'rgba(13,27,47,0.98)', borderColor: 'var(--border)' }}
+            style={{ background: 'var(--panel-solid)', borderColor: 'var(--border)' }}
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}

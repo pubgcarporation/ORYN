@@ -16,7 +16,7 @@ function Avatar({ address, size = 36 }: { address: string; size?: number }) {
   return (
     <span
       className="flex shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
-      style={{ width: size, height: size, background: `hsl(${hue(address)} 42% 62%)`, color: '#0d1b2f' }}
+      style={{ width: size, height: size, background: `hsl(${hue(address)} 42% 62%)`, color: '#0a0814' }}
       aria-hidden="true"
     >
       {address.slice(2, 4).toUpperCase()}
@@ -83,7 +83,7 @@ export function LeaderboardPage({ pool }: { pool: PoolState }) {
       </div>
 
       {me && myIndex >= 0 && (
-        <div className="card mb-5 flex items-center justify-between gap-3 p-4" style={{ borderColor: 'rgba(172,198,233,0.4)' }}>
+        <div className="card mb-5 flex items-center justify-between gap-3 p-4" style={{ borderColor: 'rgba(185,166,255,0.4)' }}>
           <div className="flex items-center gap-3">
             <Avatar address={rows[myIndex].address} />
             <div>
@@ -134,7 +134,7 @@ export function LeaderboardPage({ pool }: { pool: PoolState }) {
           {rest.length > 0 && (
             <ol className="space-y-2" start={4}>
               {rest.map((r, i) => (
-                <li key={r.address} className="card flex items-center gap-3 p-3.5" style={r.address === me ? { borderColor: 'rgba(172,198,233,0.4)' } : undefined}>
+                <li key={r.address} className="card flex items-center gap-3 p-3.5" style={r.address === me ? { borderColor: 'rgba(185,166,255,0.4)' } : undefined}>
                   <span className="display num w-7 shrink-0 text-center text-sm font-semibold" style={{ color: 'var(--subtle)' }}>
                     {i + 4}
                   </span>
@@ -169,10 +169,10 @@ export function LeaderboardPage({ pool }: { pool: PoolState }) {
 }
 
 function PodiumCard({ rank, row, you, metric, extra }: { rank: number; row: Row; you: boolean; metric: string; extra: string }) {
-  const tone = rank === 1 ? '#f0c674' : rank === 2 ? '#cbd5e1' : '#d9a066'
+  const tone = rank === 1 ? '#f5c56b' : rank === 2 ? '#cbd5e1' : '#d9a066'
   const Icon = rank === 1 ? Crown : Medal
   return (
-    <div className="card p-4" style={you ? { borderColor: 'rgba(172,198,233,0.4)' } : rank === 1 ? { borderColor: 'rgba(240,198,116,0.35)' } : undefined}>
+    <div className="card p-4" style={you ? { borderColor: 'rgba(185,166,255,0.4)' } : rank === 1 ? { borderColor: 'rgba(245,197,107,0.35)' } : undefined}>
       <div className="flex items-center justify-between">
         <span className="inline-flex items-center gap-1.5 text-sm font-semibold" style={{ color: tone }}>
           <Icon className="size-4" aria-hidden="true" /> #{rank}

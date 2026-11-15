@@ -7,7 +7,7 @@ export function OracleBanner({ pool }: { pool: PoolState }) {
   return (
     <div
       className="mb-6 flex items-start gap-2 rounded-2xl p-4 text-sm"
-      style={{ background: 'rgba(240,198,116,0.1)', border: '1px solid rgba(240,198,116,0.3)', color: 'var(--warn)' }}
+      style={{ background: 'rgba(245,197,107,0.1)', border: '1px solid rgba(245,197,107,0.3)', color: 'var(--warn)' }}
       role="status"
     >
       <AlertCircle className="mt-0.5 size-4 shrink-0" />

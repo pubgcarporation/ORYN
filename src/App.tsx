@@ -43,7 +43,7 @@ function AppShell({ path }: { path: string }) {
       <div className="relative min-h-dvh pb-28 md:pb-10 md:pl-60">
         <Sidebar active={active} />
         <div className="bg-grid pointer-events-none absolute inset-x-0 top-0 h-[480px]" aria-hidden="true" />
-        <header className="safe-top sticky top-0 z-30 border-b" style={{ borderColor: 'var(--border)', background: 'rgba(13,27,47,0.8)', backdropFilter: 'blur(16px)' }}>
+        <header className="safe-top sticky top-0 z-30 border-b" style={{ borderColor: 'var(--border)', background: 'var(--panel)', backdropFilter: 'blur(16px)' }}>
           <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-2.5 sm:py-3">
             <div className="flex items-center gap-3">
               <Link to="/" aria-label="ORYN home" className="rounded-lg md:hidden">
@@ -77,7 +77,7 @@ function AppShell({ path }: { path: string }) {
 
         <nav
           className="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t md:hidden"
-          style={{ borderColor: 'var(--border)', background: 'rgba(13,27,47,0.94)', backdropFilter: 'blur(16px)' }}
+          style={{ borderColor: 'var(--border)', background: 'var(--panel)', backdropFilter: 'blur(16px)' }}
           aria-label="Primary mobile"
         >
           <div className="mx-auto grid max-w-md grid-cols-4">

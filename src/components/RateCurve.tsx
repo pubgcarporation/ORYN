@@ -69,8 +69,8 @@ export function RateCurve({ pool }: { pool: PoolState }) {
       <svg viewBox={`0 0 ${W} ${H}`} className="mt-4 w-full" role="img" aria-label="Borrow and supply APY by utilization">
         <defs>
           <linearGradient id={gradId} x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="#acc6e9" stopOpacity="0.28" />
-            <stop offset="100%" stopColor="#acc6e9" stopOpacity="0" />
+            <stop offset="0%" stopColor="#b9a6ff" stopOpacity="0.28" />
+            <stop offset="100%" stopColor="#b9a6ff" stopOpacity="0" />
           </linearGradient>
         </defs>
         {ticks.map((t) => (
@@ -88,16 +88,16 @@ export function RateCurve({ pool }: { pool: PoolState }) {
         ))}
         <line x1={x(optimal)} x2={x(optimal)} y1={PAD.t} y2={H - PAD.b} stroke="rgba(255,255,255,0.2)" strokeDasharray="3 4" />
         <path d={`${path(borrowApr)} L${x(1)},${H - PAD.b} L${x(0)},${H - PAD.b} Z`} fill={`url(#${gradId})`} />
-        <path d={path(borrowApr)} fill="none" stroke="#acc6e9" strokeWidth="2" strokeLinejoin="round" />
-        <path d={path(supplyApr)} fill="none" stroke="#8dd89f" strokeWidth="2" strokeLinejoin="round" />
+        <path d={path(borrowApr)} fill="none" stroke="#b9a6ff" strokeWidth="2" strokeLinejoin="round" />
+        <path d={path(supplyApr)} fill="none" stroke="#5ee08a" strokeWidth="2" strokeLinejoin="round" />
         <line x1={x(util)} x2={x(util)} y1={PAD.t} y2={H - PAD.b} stroke="#f9faf3" strokeOpacity="0.5" />
-        <circle cx={x(util)} cy={y(borrowApr(util))} r="4.5" fill="#acc6e9" stroke="#0d1b2f" strokeWidth="2" />
-        <circle cx={x(util)} cy={y(supplyApr(util))} r="4.5" fill="#8dd89f" stroke="#0d1b2f" strokeWidth="2" />
+        <circle cx={x(util)} cy={y(borrowApr(util))} r="4.5" fill="#b9a6ff" stroke="#0a0814" strokeWidth="2" />
+        <circle cx={x(util)} cy={y(supplyApr(util))} r="4.5" fill="#5ee08a" stroke="#0a0814" strokeWidth="2" />
       </svg>
 
       <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs" style={{ color: 'var(--muted)' }}>
-        <Legend color="#acc6e9" label={`Borrow ${(borrowApr(util) * 100).toFixed(2)}%`} />
-        <Legend color="#8dd89f" label={`Supply ${(supplyApr(util) * 100).toFixed(2)}%`} />
+        <Legend color="#b9a6ff" label={`Borrow ${(borrowApr(util) * 100).toFixed(2)}%`} />
+        <Legend color="#5ee08a" label={`Supply ${(supplyApr(util) * 100).toFixed(2)}%`} />
         <span>Utilization now {(util * 100).toFixed(1)}%</span>
       </div>
     </section>
