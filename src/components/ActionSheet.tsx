@@ -21,6 +21,7 @@ import {
 } from '@/lib/pool'
 import type { PoolState, UserState } from '@/hooks/usePool'
 import { useTx, type TxStep } from '@/hooks/useTx'
+import { ARC_GAS_BUFFER, spendable } from '@/lib/gas'
 import { TokenBadge } from '@/components/ui'
 
 export type ActionKind = 'deposit' | 'withdraw' | 'borrow' | 'repay'
@@ -40,9 +41,6 @@ const TITLES: Record<ActionKind, string> = {
   repay: 'Repay',
 }
 
-// Gas on Arc is paid in USDC, so a max deposit leaves a little behind.
-const GAS_RESERVE = 100_000n
-
 export function ActionSheet({ action, symbol, pool, user, onClose }: Props) {
   const asset = ASSETS[symbol]
   const reserve = pool.reserves[symbol]
@@ -59,17 +57,17 @@ export function ActionSheet({ action, symbol, pool, user, onClose }: Props) {
 
   const max = useMemo(() => {
     switch (action) {
-      case 'deposit': {
+      case 'deposit':
         // Gas on Arc is paid in USDC, so keep a little back when depositing USDC.
-        const keep = symbol === 'USDC' ? (position.walletBalance < GAS_RESERVE ? position.walletBalance : GAS_RESERVE) : 0n
-        return position.walletBalance - keep
-      }
+        return spendable(position.walletBalance, symbol === 'USDC')
       case 'withdraw':
         return position.maxWithdraw
       case 'borrow':
         return position.maxBorrow
-      case 'repay':
-        return position.debt < position.walletBalance ? position.debt : position.walletBalance
+      case 'repay': {
+        const wallet = spendable(position.walletBalance, symbol === 'USDC')
+        return position.debt < wallet ? position.debt : wallet
+      }
     }
   }, [action, symbol, position])
 
@@ -239,7 +237,10 @@ export function ActionSheet({ action, symbol, pool, user, onClose }: Props) {
                   disabled={tx.busy}
                   onChange={(e) => {
                     const v = e.target.value.replace(/[^0-9.]/g, '')
-                    if (/^\d*\.?\d*$/.test(v)) setAmount(v)
+                    if (/^\d*\.?\d*$/.test(v)) {
+                      setAmount(v)
+                      if (tx.phase === 'error') tx.reset()
+                    }
                   }}
                   placeholder="0.00"
                   className="field text-4xl font-semibold"
@@ -279,9 +280,9 @@ export function ActionSheet({ action, symbol, pool, user, onClose }: Props) {
                 )}
               </div>
 
-              {action === 'deposit' && symbol === 'USDC' && (
+              {(action === 'deposit' || action === 'repay') && symbol === 'USDC' && (
                 <p className="text-xs" style={{ color: 'var(--subtle)' }}>
-                  Max keeps 0.10 USDC in your wallet to pay network fees, which are paid in USDC on Arc.
+                  Max keeps {fmtToken(ARC_GAS_BUFFER, 6)} USDC in your wallet to pay network fees, which are paid in USDC on Arc.
                 </p>
               )}
               {action === 'borrow' && !pool.priceFresh && (

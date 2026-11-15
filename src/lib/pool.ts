@@ -9,7 +9,7 @@ const usdcFact = getUsdc(ARC_ID)
 if (!usdcFact) throw new Error('USDC is not registered for Arc Testnet')
 
 // Public deployment addresses on Arc Testnet. The env vars let a redeploy point at another market.
-export const POOL_ADDRESS = ((import.meta.env.VITE_LENDING_POOL_ADDRESS as string | undefined) || '0x475a06699235e3be4e22dabaa30f3d3aa4ef82fa') as Address
+export const POOL_ADDRESS = ((import.meta.env.VITE_LENDING_POOL_ADDRESS as string | undefined) || '0xce5103b59952bf9a7848f55ab3f60a121ffd43c0') as Address
 export const EURC_ADDRESS = ((import.meta.env.VITE_EURC_ADDRESS as string | undefined) || '0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a') as Address
 
 export type AssetSymbol = 'USDC' | 'EURC'
@@ -49,6 +49,8 @@ export const poolAbi = parseAbi([
   'function SLOPE2() view returns (uint256)',
   'function RESERVE_FACTOR() view returns (uint256)',
   'function priceUpdatedAt() view returns (uint256)',
+  'function pendingEurUsdPrice() view returns (uint256)',
+  'function pendingPriceEta() view returns (uint256)',
   'function maxPriceAge() view returns (uint256)',
 ])
 

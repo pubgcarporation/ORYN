@@ -21,12 +21,17 @@ export function OracleCard({ pool }: { pool: PoolState }) {
     contracts: [
       { address: POOL_ADDRESS, abi: poolAbi, functionName: 'priceUpdatedAt', chainId: ARC_ID },
       { address: POOL_ADDRESS, abi: poolAbi, functionName: 'maxPriceAge', chainId: ARC_ID },
+      { address: POOL_ADDRESS, abi: poolAbi, functionName: 'pendingEurUsdPrice', chainId: ARC_ID },
+      { address: POOL_ADDRESS, abi: poolAbi, functionName: 'pendingPriceEta', chainId: ARC_ID },
     ],
     query: { refetchInterval: 30_000 },
   })
   const updatedAt = data?.[0]?.result
   const maxAge = data?.[1]?.result
+  const pendingPrice = data?.[2]?.result
+  const pendingEta = data?.[3]?.result
   if (typeof updatedAt !== 'bigint' || typeof maxAge !== 'bigint' || pool.eurc8 === 0n) return null
+  const queued = typeof pendingPrice === 'bigint' && typeof pendingEta === 'bigint' && pendingPrice > 0n && pendingEta > 0n
 
   const age = Math.max(0, now - Number(updatedAt))
   const remaining = Number(maxAge) - age
@@ -38,7 +43,7 @@ export function OracleCard({ pool }: { pool: PoolState }) {
         <div>
           <h2 className="display text-xl font-semibold">Price oracle</h2>
           <p className="mt-1 max-w-md text-sm" style={{ color: 'var(--muted)' }}>
-            The pool values EURC with a price set by the market owner. This is a testnet setup, not an independent feed.
+            The pool values EURC with a price set by the market owner. Every change is announced onchain and takes effect only after a 6 hour delay. This is a testnet setup, not an independent feed.
           </p>
         </div>
         <span
@@ -65,6 +70,12 @@ export function OracleCard({ pool }: { pool: PoolState }) {
           </dd>
         </div>
       </dl>
+      {queued && (
+        <p className="mt-3 text-xs" style={{ color: 'var(--warn)' }}>
+          A price change to ${(Number(pendingPrice) / 1e8).toFixed(4)} is queued and takes effect in{' '}
+          {Number(pendingEta) > now ? span(Number(pendingEta) - now) : 'moments'}.
+        </p>
+      )}
     </section>
   )
 }
