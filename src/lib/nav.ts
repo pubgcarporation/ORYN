@@ -1,8 +1,13 @@
 import { ArrowLeftRight, Landmark, Repeat, Wallet } from 'lucide-react'
 
-export type Tab = 'markets' | 'swap' | 'bridge' | 'positions'
+export type MainTab = 'markets' | 'swap' | 'bridge' | 'positions'
+/** Pages opened from the account panel, not from the main navigation. */
+export type ExtraTab = 'leaderboard' | 'analytics'
+export type Tab = MainTab | ExtraTab
 
-export const TABS: { id: Tab; label: string; hint: string; icon: typeof Landmark }[] = [
+const EXTRA: ExtraTab[] = ['leaderboard', 'analytics']
+
+export const TABS: { id: MainTab; label: string; hint: string; icon: typeof Landmark }[] = [
   { id: 'markets', label: 'Markets', hint: 'Supply, borrow and repay', icon: Landmark },
   { id: 'swap', label: 'Swap', hint: 'Trade USDC and EURC', icon: Repeat },
   { id: 'bridge', label: 'Bridge', hint: 'Move USDC between networks', icon: ArrowLeftRight },
@@ -14,7 +19,7 @@ const LEGACY: Record<string, Tab> = { earn: 'markets', borrow: 'markets' }
 
 export function tabFromPath(path: string): Tab | undefined {
   const segment = path.split('/')[2]
-  return TABS.find((t) => t.id === segment)?.id ?? LEGACY[segment]
+  return TABS.find((t) => t.id === segment)?.id ?? EXTRA.find((t) => t === segment) ?? LEGACY[segment]
 }
 
 /** True when the path is an old Earn or Borrow link that should be rewritten to Markets. */

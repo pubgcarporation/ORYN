@@ -8,6 +8,8 @@ import { ConnectButton } from '@/auth/ConnectButton'
 import { Logo } from '@/components/Logo'
 import { MarketsPage } from '@/components/MarketsPage'
 import { PositionsPage } from '@/components/PositionsPage'
+import { LeaderboardPage } from '@/components/LeaderboardPage'
+import { AnalyticsPage } from '@/components/AnalyticsPage'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { NotFound } from '@/components/NotFound'
 import { Skeleton } from '@/components/ui'
@@ -65,6 +67,8 @@ function AppShell({ path }: { path: string }) {
                   {active === 'swap' && <SwapPage />}
                   {active === 'bridge' && <BridgePage />}
                   {active === 'positions' && <PositionsPage pool={pool} user={user} />}
+                  {active === 'leaderboard' && <LeaderboardPage pool={pool} />}
+                  {active === 'analytics' && <AnalyticsPage pool={pool} />}
                 </Suspense>
               </ErrorBoundary>
             </motion.div>
