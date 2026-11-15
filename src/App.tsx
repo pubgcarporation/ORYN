@@ -50,7 +50,6 @@ function AppShell({ path }: { path: string }) {
               <span className="label hidden rounded-full border px-2.5 py-1 sm:inline md:hidden" style={{ borderColor: 'var(--border)' }}>
                 Arc Testnet
               </span>
-              <p className="display hidden text-lg font-semibold md:block">{TABS.find((t) => t.id === active)?.label}</p>
             </div>
             <ConnectButton />
           </div>

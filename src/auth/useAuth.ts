@@ -1,7 +1,7 @@
 import { usePrivy } from '@privy-io/react-auth'
 
 export interface AuthActions {
-  /** Opens the Privy sign-in window: Google or a wallet. */
+  /** Opens the Privy sign-in window: Google, email or a wallet. */
   login: () => void
   logout: () => void
   ready: boolean
