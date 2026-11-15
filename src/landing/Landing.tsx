@@ -35,7 +35,7 @@ export function Landing() {
               ))}
             </nav>
             <div className="flex items-center gap-2">
-              <Link to="/app/earn" className="btn-ghost !min-h-11 hidden sm:inline-flex">
+              <Link to="/app/markets" className="btn-ghost !min-h-11 hidden sm:inline-flex">
                 Launch app
               </Link>
               <ConnectButton />

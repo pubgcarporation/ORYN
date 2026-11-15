@@ -65,7 +65,7 @@ export function Markets({ pool }: { pool: PoolState }) {
           const r = pool.reserves[a.symbol]
           return (
             <motion.div key={a.symbol} {...reveal} transition={{ duration: 0.45, delay: i * 0.08 }}>
-              <Link to="/app/earn" className="card card-hover group block p-6">
+              <Link to="/app/markets" className="card card-hover group block p-6">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <TokenBadge symbol={a.symbol} size={40} />
@@ -203,7 +203,7 @@ export function FinalCta() {
         <p className="relative mx-auto mt-4 max-w-md text-pretty" style={{ color: 'var(--muted)' }}>
           Open the app, sign in, and make your first deposit on Arc Testnet.
         </p>
-        <Link to="/app/earn" className="btn-primary relative mt-8 !min-h-12 !px-7 !text-base">
+        <Link to="/app/markets" className="btn-primary relative mt-8 !min-h-12 !px-7 !text-base">
           Launch app <ArrowRight className="size-4" />
         </Link>
       </motion.div>

@@ -113,11 +113,11 @@ export function PositionsPage({ pool, user }: { pool: PoolState; user: UserState
       {rows.length === 0 ? (
         <div className="card flex flex-col items-center gap-3 p-8 text-center">
           <p className="text-sm" style={{ color: 'var(--muted)' }}>
-            {user.loaded ? 'No open positions yet. Supply an asset to start earning and unlock borrowing.' : 'Loading your positions...'}
+            {user.loaded ? 'No open positions yet. Supply an asset in Markets to start earning and unlock borrowing.' : 'Loading your positions...'}
           </p>
           {user.loaded && (
-            <Link to="/app/earn" className="btn-primary">
-              Go to Earn
+            <Link to="/app/markets" className="btn-primary">
+              Go to Markets
             </Link>
           )}
         </div>

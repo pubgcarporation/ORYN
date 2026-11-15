@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect } from 'react'
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
 import { usePool, useUser } from '@/hooks/usePool'
-import { TABS, tabFromPath, type Tab } from '@/lib/nav'
+import { TABS, isLegacyPath, tabFromPath, type Tab } from '@/lib/nav'
 import { Sidebar } from '@/components/Sidebar'
 import { Link, navigate, usePath } from '@/lib/router'
 import { ConnectButton } from '@/auth/ConnectButton'
@@ -31,10 +31,10 @@ function AppShell({ path }: { path: string }) {
   const user = useUser()
 
   useEffect(() => {
-    if (!tab) navigate('/app/earn', { replace: true })
-  }, [tab])
+    if (!tab || isLegacyPath(path)) navigate('/app/markets', { replace: true })
+  }, [tab, path])
 
-  const active: Tab = tab ?? 'earn'
+  const active: Tab = tab ?? 'markets'
 
   return (
     <MotionConfig reducedMotion="user">
@@ -61,8 +61,7 @@ function AppShell({ path }: { path: string }) {
             <motion.div key={active} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }}>
               <ErrorBoundary resetKey={active}>
                 <Suspense fallback={<Skeleton className="mx-auto h-96 w-full max-w-md" />}>
-                  {active === 'earn' && <MarketsPage mode="lend" pool={pool} user={user} />}
-                  {active === 'borrow' && <MarketsPage mode="borrow" pool={pool} user={user} />}
+                  {active === 'markets' && <MarketsPage pool={pool} user={user} />}
                   {active === 'swap' && <SwapPage />}
                   {active === 'bridge' && <BridgePage />}
                   {active === 'positions' && <PositionsPage pool={pool} user={user} />}
@@ -77,7 +76,7 @@ function AppShell({ path }: { path: string }) {
           style={{ borderColor: 'var(--border)', background: 'rgba(13,27,47,0.94)', backdropFilter: 'blur(16px)' }}
           aria-label="Primary mobile"
         >
-          <div className="mx-auto grid max-w-md grid-cols-5">
+          <div className="mx-auto grid max-w-md grid-cols-4">
             {TABS.map(({ id, label, icon: Icon }) => (
               <Link
                 key={id}

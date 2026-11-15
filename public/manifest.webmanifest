@@ -2,7 +2,7 @@
   "name": "ORYN",
   "short_name": "ORYN",
   "description": "Lend, borrow, swap and bridge USDC and EURC on Arc.",
-  "start_url": "/app/earn",
+  "start_url": "/app/markets",
   "scope": "/",
   "display": "standalone",
   "background_color": "#0d1b2f",

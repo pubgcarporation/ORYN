@@ -40,7 +40,7 @@ export function BorrowSimulator({ pool, user }: { pool: PoolState; user: UserSta
         </p>
       ) : !hasCollateral ? (
         <p className="inner mt-4 p-4 text-sm" style={{ color: 'var(--muted)' }}>
-          Deposit USDC, EURC or cirBTC on the Earn page first. Your deposits are your borrowing power.
+          Deposit USDC, EURC or cirBTC in Markets first. Your deposits are your borrowing power.
         </p>
       ) : (
         <div className="mt-4 space-y-4">

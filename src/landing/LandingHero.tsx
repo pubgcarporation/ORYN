@@ -49,7 +49,7 @@ export function LandingHero({ pool }: { pool: PoolState }) {
             transition={{ delay: 0.2 }}
             className="mt-7 grid gap-3 sm:mt-8 sm:flex sm:flex-wrap sm:items-center"
           >
-            <Link to="/app/earn" className="btn-primary !min-h-12 !px-6 !text-base">
+            <Link to="/app/markets" className="btn-primary !min-h-12 !px-6 !text-base">
               Launch app <ArrowRight className="size-4" />
             </Link>
             <button

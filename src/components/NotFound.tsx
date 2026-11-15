@@ -18,7 +18,7 @@ export function NotFound() {
           <Link to="/" className="btn-ghost !min-h-12">
             Home
           </Link>
-          <Link to="/app/earn" className="btn-primary">
+          <Link to="/app/markets" className="btn-primary">
             Open the app
           </Link>
         </div>
