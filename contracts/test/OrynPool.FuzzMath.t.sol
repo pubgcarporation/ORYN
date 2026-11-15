@@ -5,17 +5,10 @@ import {OrynPool} from "../OrynPool.sol";
 import {OrynPoolTestBase} from "./OrynPool.Base.t.sol";
 
 contract OrynPoolFuzzMathTest is OrynPoolTestBase {
-    /// @dev Walk the oracle to `target` in legal <=10% steps.
+    /// @dev Moves the oracle to `target` with a single Chainlink round.
     function _walkPrice(uint256 target) internal {
-        for (uint256 i; i < 40; ++i) {
-            uint256 cur = pool.eurUsdPrice();
-            if (cur == target) return;
-            uint256 maxStep = cur * 1_000 / 10_000;
-            uint256 next;
-            if (target > cur) next = target - cur > maxStep ? cur + maxStep : target;
-            else next = cur - target > maxStep ? cur - maxStep : target;
-            _setPrice(next);
-        }
+        skip(1 hours);
+        _setPrice(target);
         assertEq(pool.eurUsdPrice(), target);
     }
 

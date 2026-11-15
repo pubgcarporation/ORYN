@@ -8,6 +8,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+import {AggregatorV3Interface} from "./interfaces/AggregatorV3Interface.sol";
 
 /**
  * @title OrynPool
@@ -15,12 +16,13 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
  * @dev Both immutable assets MUST have 6 decimals; decimals() is deliberately never called.
  * Expected testnet assets: USDC 0x3600000000000000000000000000000000000000 and
  * EURC 0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a. Addresses are constructor inputs.
- * WARNING: the owner-fed EUR/USD oracle is TESTNET GRADE. Replace it with a real,
- * independently secured feed before any mainnet use. Owner price changes are publicly
- * queued with a 6-hour delay and expire 3 days after their ETA, allowing suppliers time
- * to exit subject to existing withdrawal checks. The constructor sets the initial price
- * immediately. Oracle views are indicative even when stale; risk-increasing actions
- * and liquidations enforce freshness.
+ * USDC/USD and EURC/USD are read from their immutable Chainlink-compatible AggregatorV3 feeds.
+ * On Arc Testnet the EURC feed is a testnet-only mirror of the Arc mainnet Chainlink EURC/USD
+ * answer (proxy 0x361b95c10b76Ca3f35C686d423e43A951755Bf23, 8 decimals, 24h heartbeat),
+ * preserving Chainlink's original update timestamp rather than the relay timestamp.
+ * Oracle price views are indicative even when stale; borrowing, liquidation and
+ * withdrawals with debt enforce freshness. Deposits, repayment and debt-free exits
+ * do not read the feed.
  *
  * Balances use fixed-origin 1e18 indexes, not cash/share exchange rates. Donations never
  * increase an index, so the first depositor cannot inflate the share price by donating.
@@ -50,19 +52,16 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
     uint256 public constant BASE_RATE = 0;
     uint256 public constant SLOPE1 = 0.04e18;
     uint256 public constant SLOPE2 = 0.56e18;
-    uint256 public constant MIN_EUR_PRICE = 50_000_000;
-    uint256 public constant MAX_EUR_PRICE = 200_000_000;
-    uint256 public constant MAX_PRICE_STEP_BPS = 1_000;
     uint256 public constant PRICE_UPDATE_DELAY = 6 hours;
     uint256 public constant PRICE_UPDATE_EXPIRY = 3 days;
 
     address public immutable USDC;
     address public immutable EURC;
-    uint256 public eurUsdPrice;
-    uint256 public priceUpdatedAt;
-    uint256 public maxPriceAge = 7 days;
-    uint256 public pendingEurUsdPrice;
-    uint256 public pendingPriceEta;
+    AggregatorV3Interface public immutable usdcUsdFeed;
+    AggregatorV3Interface public immutable eurcUsdFeed;
+    uint8 public immutable usdcFeedDecimals;
+    uint8 public immutable feedDecimals;
+    uint256 public maxPriceAge = 2 days;
 
     struct Reserve {
         uint256 supplyIndex;
@@ -170,11 +169,6 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
     error RiskParamsNotReady();
     error RiskParamsExpired();
     error InvalidPrice();
-    error PriceStepTooLarge();
-    error PriceUpdateTooSoon();
-    error NoPendingPrice();
-    error PriceUpdateNotReady();
-    error PriceUpdateExpired();
     error OwnershipRenunciationDisabled();
     error InvalidMaxPriceAge();
     error StalePrice(uint256 updatedAt, uint256 maximumAge);
@@ -200,9 +194,6 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
     event RiskParamsQueued(address indexed asset, uint256 ltv, uint256 liquidationThreshold,
         uint256 liquidationBonus, uint256 supplyCap, uint256 borrowCap, uint256 eta);
     event RiskParamsCancelled(address indexed asset);
-    event PriceUpdated(uint256 price8, uint256 updatedAt);
-    event PriceUpdateQueued(uint256 price8, uint256 eta);
-    event PriceUpdateCancelled();
     event MaxPriceAgeUpdated(uint256 maximumAge);
     event ReservesCollected(address indexed asset, address indexed to, uint256 amount);
     event Accrued(address indexed asset, uint256 supplyIndex, uint256 borrowIndex,
@@ -213,17 +204,26 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
     /// @param initialOwner Owner using two-step ownership transfers.
     /// @param usdc Six-decimal USDC; market index zero.
     /// @param eurc Six-decimal EURC; market index one.
-    /// @param initialEurUsdPrice Explicit EUR/USD price in 8 decimals (e.g. 108000000).
-    constructor(address initialOwner, address usdc, address eurc, uint256 initialEurUsdPrice)
+    /// @param usdcUsdFeed_ Chainlink-compatible USDC/USD feed.
+    /// @param eurcUsdFeed_ Chainlink-compatible EURC/USD feed; use a mirror on Arc Testnet.
+    /// @dev Reads only feed decimals at construction; initial rounds are not required.
+    constructor(address initialOwner, address usdc, address eurc, address usdcUsdFeed_, address eurcUsdFeed_)
         Ownable(initialOwner)
     {
-        if (usdc == address(0) || eurc == address(0) || initialOwner == address(0)) revert ZeroAddress();
+        if (usdc == address(0) || eurc == address(0) || initialOwner == address(0)
+            || usdcUsdFeed_ == address(0) || eurcUsdFeed_ == address(0)) revert ZeroAddress();
         if (usdc == eurc) revert IdenticalAssets();
         USDC = usdc;
         EURC = eurc;
+        usdcUsdFeed = AggregatorV3Interface(usdcUsdFeed_);
+        eurcUsdFeed = AggregatorV3Interface(eurcUsdFeed_);
+        uint8 usdcDecimals_ = AggregatorV3Interface(usdcUsdFeed_).decimals();
+        uint8 decimals_ = AggregatorV3Interface(eurcUsdFeed_).decimals();
+        if (usdcDecimals_ > 18 || decimals_ > 18) revert InvalidPrice();
+        usdcFeedDecimals = usdcDecimals_;
+        feedDecimals = decimals_;
         _initialize(usdc, 8_000, 8_500);
         _initialize(eurc, 7_500, 8_000);
-        _setPrice(initialEurUsdPrice);
     }
 
     function _initialize(address asset, uint256 ltv, uint256 threshold) private {
@@ -434,54 +434,6 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
         }
     }
 
-    /// @notice Queues an 8-decimal EURC/USD price in [0.50, 2.00], at most 10% from the current price.
-    /// @dev Compatibility alias for setEurcPrice; replaces any proposal with a new 6-hour delay.
-    /// The owner must apply it within 3 days after its ETA; the current price is unchanged until then.
-    function setEurUsdPrice(uint256 price8) external onlyOwner nonReentrant {
-        _updatePrice(price8);
-    }
-
-    /// @notice Queues an 8-decimal EURC/USD price in [0.50, 2.00], at most 10% from the current price.
-    /// @dev Replaces any proposal with a new 6-hour delay; the owner must apply it within
-    /// 3 days after its ETA. Queuing does not change the current price or its freshness.
-    function setEurcPrice(uint256 price8) external onlyOwner nonReentrant {
-        _updatePrice(price8);
-    }
-
-    function _updatePrice(uint256 price8) private {
-        if (price8 < MIN_EUR_PRICE || price8 > MAX_EUR_PRICE) revert InvalidPrice();
-        uint256 difference = price8 > eurUsdPrice ? price8 - eurUsdPrice : eurUsdPrice - price8;
-        if (difference > Math.mulDiv(eurUsdPrice, MAX_PRICE_STEP_BPS, BPS)) revert PriceStepTooLarge();
-        pendingEurUsdPrice = price8;
-        pendingPriceEta = block.timestamp + PRICE_UPDATE_DELAY;
-        emit PriceUpdateQueued(price8, pendingPriceEta);
-    }
-
-    /// @notice Applies the queued price after its delay and no later than 3 days after its ETA.
-    function applyPendingPrice() external onlyOwner nonReentrant {
-        uint256 eta = pendingPriceEta;
-        if (eta == 0) revert NoPendingPrice();
-        if (block.timestamp < eta) revert PriceUpdateNotReady();
-        if (block.timestamp > eta + PRICE_UPDATE_EXPIRY) revert PriceUpdateExpired();
-        uint256 pending = pendingEurUsdPrice;
-        _accrueAll();
-        _setPrice(pending);
-        pendingEurUsdPrice = 0;
-        pendingPriceEta = 0;
-    }
-
-    /// @notice Clears the queued price proposal without changing the current price.
-    function cancelPendingPrice() external onlyOwner {
-        pendingEurUsdPrice = 0;
-        pendingPriceEta = 0;
-        emit PriceUpdateCancelled();
-    }
-
-    /// @notice Compatibility view: returns the pending price's ETA, or zero if no proposal exists.
-    function nextPriceUpdateTime() public view returns (uint256) {
-        return pendingPriceEta;
-    }
-
     function setMaxPriceAge(uint256 maximumAge) external onlyOwner nonReentrant {
         if (maximumAge < 1 hours || maximumAge > 7 days) revert InvalidMaxPriceAge();
         _accrueAll();
@@ -552,12 +504,43 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
         emit UnrelatedTokenRescued(token, to, amount);
     }
 
-    /// @notice Returns the stored eight-decimal EURC/USD quote, even if stale.
-    function eurcUsdPrice() external view returns (uint256) {
-        return eurUsdPrice;
+    /// @notice Returns the current eight-decimal USDC/USD quote, even if stale.
+    function usdcUsdPrice() public view returns (uint256) {
+        (bool valid, uint256 price8,) = _readFeed(usdcUsdFeed, usdcFeedDecimals);
+        if (!valid) revert InvalidPrice();
+        return price8;
     }
 
-    /// @notice Indicates whether risk-increasing actions can use the stored quote.
+    /// @notice Returns the current eight-decimal EURC/USD quote, even if stale.
+    function eurUsdPrice() public view returns (uint256) {
+        (bool valid, uint256 price8,) = _readFeed(eurcUsdFeed, feedDecimals);
+        if (!valid) revert InvalidPrice();
+        return price8;
+    }
+
+    /// @notice Compatibility alias for eurUsdPrice(); indicative even if stale.
+    function eurcUsdPrice() external view returns (uint256) {
+        return eurUsdPrice();
+    }
+
+    /// @notice Returns the USDC source timestamp, or zero if its round cannot be read.
+    function usdcPriceUpdatedAt() public view returns (uint256) {
+        (,, uint256 updatedAt) = _readFeed(usdcUsdFeed, usdcFeedDecimals);
+        return updatedAt;
+    }
+
+    /// @notice Returns the older source timestamp, or zero if either round cannot be read.
+    function priceUpdatedAt() public view returns (uint256) {
+        (,, uint256 usdcUpdatedAt) = _readFeed(usdcUsdFeed, usdcFeedDecimals);
+        (,, uint256 eurcUpdatedAt) = _readFeed(eurcUsdFeed, feedDecimals);
+        return Math.min(usdcUpdatedAt, eurcUpdatedAt);
+    }
+
+    function priceFeed() external view returns (address) {
+        return address(eurcUsdFeed);
+    }
+
+    /// @notice Indicates whether both configured feed quotes are fresh for risk-increasing actions.
     function isPriceFresh() external view returns (bool) {
         return !_isStale();
     }
@@ -892,22 +875,52 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
     }
 
     function _price(address asset) private view returns (uint256) {
-        return asset == USDC ? 1e8 : eurUsdPrice;
+        return asset == USDC ? usdcUsdPrice() : eurUsdPrice();
     }
 
-    function _setPrice(uint256 price8) private {
-        if (price8 < MIN_EUR_PRICE || price8 > MAX_EUR_PRICE) revert InvalidPrice();
-        eurUsdPrice = price8;
-        priceUpdatedAt = block.timestamp;
-        emit PriceUpdated(price8, block.timestamp);
+    /// @dev Failed/invalid reads are reported rather than reverted so freshness views fail closed.
+    /// Returns the feed's timestamp even for an invalid round, or zero when unreadable.
+    function _readFeed(AggregatorV3Interface feed, uint8 decimals_)
+        private view returns (bool valid, uint256 price8, uint256 updatedAt)
+    {
+        try feed.latestRoundData() returns (
+            uint80 roundId, int256 answer, uint256, uint256 timestamp, uint80 answeredInRound
+        ) {
+            updatedAt = timestamp;
+            if (answer <= 0 || timestamp == 0 || answeredInRound < roundId || timestamp > block.timestamp) {
+                return (false, 0, updatedAt);
+            }
+            uint256 unsignedAnswer = uint256(answer);
+            if (decimals_ > 8) {
+                price8 = unsignedAnswer / (10 ** uint256(decimals_ - 8));
+            } else {
+                uint256 factor = 10 ** uint256(8 - decimals_);
+                if (unsignedAnswer > type(uint256).max / factor) return (false, 0, updatedAt);
+                price8 = unsignedAnswer * factor;
+            }
+            // An answer that rounds to zero cannot be used as a denominator in risk math.
+            valid = price8 != 0;
+            return (valid, price8, updatedAt);
+        } catch {
+            return (false, 0, 0);
+        }
+    }
+
+    function _priceFreshness() private view returns (bool fresh, uint256 oldestUpdatedAt) {
+        (bool usdcValid,, uint256 usdcUpdatedAt) = _readFeed(usdcUsdFeed, usdcFeedDecimals);
+        (bool eurcValid,, uint256 eurcUpdatedAt) = _readFeed(eurcUsdFeed, feedDecimals);
+        oldestUpdatedAt = Math.min(usdcUpdatedAt, eurcUpdatedAt);
+        fresh = usdcValid && eurcValid && block.timestamp - oldestUpdatedAt <= maxPriceAge;
     }
 
     function _isStale() private view returns (bool) {
-        return block.timestamp - priceUpdatedAt > maxPriceAge;
+        (bool fresh,) = _priceFreshness();
+        return !fresh;
     }
 
     function _requireFreshPrice() private view {
-        if (_isStale()) revert StalePrice(priceUpdatedAt, maxPriceAge);
+        (bool fresh, uint256 oldestUpdatedAt) = _priceFreshness();
+        if (!fresh) revert StalePrice(oldestUpdatedAt, maxPriceAge);
     }
 
     function _up(uint256 x, uint256 y, uint256 denominator) private pure returns (uint256) {

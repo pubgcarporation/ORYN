@@ -47,8 +47,7 @@ contract OrynPoolSupplyTest is OrynPoolTestBase {
     }
 
     function test_Deposit_SupplyCap() public {
-        vm.prank(owner);
-        pool.setRiskParams(address(usdc), 8_000, 8_500, 500, 1_000 * M, 0);
+        _applyRisk(address(usdc), 8_000, 8_500, 500, 1_000 * M, 0);
         _deposit(alice, usdc, 600 * M);
         _deposit(bob, usdc, 400 * M); // exactly at the cap
         vm.prank(carol);
@@ -58,8 +57,15 @@ contract OrynPoolSupplyTest is OrynPoolTestBase {
         // the cap is per market: EURC unaffected
         _deposit(carol, eurc, 5_000 * M);
 
+        // queued cap does not apply until the delay elapses and the owner applies it
         vm.prank(owner);
         pool.setRiskParams(address(usdc), 8_000, 8_500, 500, 2_000 * M, 0);
+        vm.prank(carol);
+        vm.expectRevert(OrynPool.SupplyCapExceeded.selector);
+        pool.deposit(address(usdc), 1);
+        skip(6 hours);
+        vm.prank(owner);
+        pool.applyPendingRiskParams(address(usdc));
         _deposit(carol, usdc, 1_000 * M);
         assertEq(pool.getReserveData(address(usdc)).totalSupplied, 2_000 * M);
     }

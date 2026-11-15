@@ -4,36 +4,56 @@ pragma solidity ^0.8.20;
 import {Test} from "forge-std/Test.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {OrynPool} from "../OrynPool.sol";
+import {MirrorAggregator} from "../MirrorAggregator.sol";
 import {MockERC20} from "../test-helpers/MockERC20.sol";
+import {MockAggregator} from "../test-helpers/MockAggregator.sol";
 
 abstract contract OrynPoolTestBase is Test {
     OrynPool internal pool;
+    MirrorAggregator internal feed; // EURC/USD
+    MockAggregator internal usdcFeed; // USDC/USD, default exactly 1.00000000 (8 decimals)
     MockERC20 internal usdc;
     MockERC20 internal eurc;
 
     address internal owner = makeAddr("owner");
+    address internal updater = makeAddr("updater");
     address internal alice = makeAddr("alice"); // supplier
     address internal bob = makeAddr("bob"); // borrower
     address internal carol = makeAddr("carol");
     address internal liq = makeAddr("liquidator");
 
     uint256 internal constant PRICE = 110_220_000; // 1.1022e8
+    uint256 internal constant USDC_PRICE = 100_000_000; // 1.00000000
     uint256 internal constant M = 1e6;
     uint256 internal constant START = 1_700_000_000;
+
+    uint80 internal srcRound;
+    uint256 internal lastPushTs;
+    uint256 internal usdcPriceNow = USDC_PRICE; // answer re-published whenever the EURC feed is pushed
 
     function setUp() public virtual {
         vm.warp(START);
         usdc = new MockERC20("USD Coin", "USDC", 6);
         eurc = new MockERC20("Euro Coin", "EURC", 6);
-        pool = new OrynPool(owner, address(usdc), address(eurc), PRICE);
+        feed = new MirrorAggregator(owner, updater, 8, "EURC / USD");
+        usdcFeed = new MockAggregator(8);
+        usdcFeed.setRound(int256(USDC_PRICE), START);
+        pool = new OrynPool(owner, address(usdc), address(eurc), address(usdcFeed), address(feed));
+        _push(PRICE, START); // initial Chainlink round, timestamp = now
 
+        _fund(pool);
+    }
+
+    function _fund(OrynPool p) internal {
         address[5] memory users = [alice, bob, carol, liq, owner];
         for (uint256 i; i < users.length; ++i) {
-            usdc.mint(users[i], 100_000_000e6);
-            eurc.mint(users[i], 100_000_000e6);
+            if (usdc.balanceOf(users[i]) == 0) {
+                usdc.mint(users[i], 100_000_000e6);
+                eurc.mint(users[i], 100_000_000e6);
+            }
             vm.startPrank(users[i]);
-            usdc.approve(address(pool), type(uint256).max);
-            eurc.approve(address(pool), type(uint256).max);
+            usdc.approve(address(p), type(uint256).max);
+            eurc.approve(address(p), type(uint256).max);
             vm.stopPrank();
         }
     }
@@ -58,9 +78,37 @@ abstract contract OrynPoolTestBase is Test {
         pool.repay(address(t), a);
     }
 
+    /// @dev Pushes an EURC Chainlink round with an explicit source timestamp (must be strictly increasing).
+    ///      The USDC feed is re-published with the same source timestamp and its current answer, so the
+    ///      pool's combined freshness (older of the two) behaves exactly as with a single feed.
+    function _push(uint256 p, uint256 sourceTs) internal {
+        vm.prank(updater);
+        feed.pushRound(int256(p), sourceTs, ++srcRound);
+        lastPushTs = sourceTs;
+        usdcFeed.setRound(int256(usdcPriceNow), sourceTs);
+    }
+
+    /// @dev Publishes a USDC/USD round "now" without touching the EURC feed.
+    function _setUsdcPrice(uint256 p) internal {
+        usdcPriceNow = p;
+        usdcFeed.setRound(int256(p), block.timestamp);
+    }
+
+    /// @dev Pushes a fresh round stamped "now"; advances 1s first if "now" was already used.
     function _setPrice(uint256 p) internal {
+        if (block.timestamp <= lastPushTs) skip(lastPushTs + 1 - block.timestamp);
+        _push(p, block.timestamp);
+    }
+
+    /// @dev Queue risk params, wait out the 6h delay, then apply them.
+    function _applyRisk(address asset, uint256 ltv, uint256 lt, uint256 bonus, uint256 supplyCap, uint256 borrowCap)
+        internal
+    {
         vm.prank(owner);
-        pool.setEurcPrice(p);
+        pool.setRiskParams(asset, ltv, lt, bonus, supplyCap, borrowCap);
+        skip(6 hours);
+        vm.prank(owner);
+        pool.applyPendingRiskParams(asset);
     }
 
     /// @dev alice supplies 10,000 of each asset.

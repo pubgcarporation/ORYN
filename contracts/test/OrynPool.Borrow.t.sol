@@ -90,8 +90,7 @@ contract OrynPoolBorrowTest is OrynPoolTestBase {
     function test_Borrow_BorrowCap() public {
         _liquidity();
         _deposit(bob, usdc, 5_000 * M);
-        vm.prank(owner);
-        pool.setRiskParams(address(eurc), 7_500, 8_000, 500, 0, 100 * M);
+        _applyRisk(address(eurc), 7_500, 8_000, 500, 0, 100 * M);
 
         vm.prank(bob);
         vm.expectRevert(OrynPool.BorrowCapExceeded.selector);

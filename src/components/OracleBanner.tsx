@@ -14,7 +14,7 @@ export function OracleBanner({ pool }: { pool: PoolState }) {
       <span>
         {pool.paused
           ? 'New borrowing is paused. You can still deposit, repay and withdraw.'
-          : 'The EURC price feed has not been refreshed recently, so new borrowing is paused. Deposits and repayments still work.'}
+          : 'The Chainlink EURC price is out of date, so new borrowing and liquidations are paused. Deposits and repayments still work.'}
       </span>
     </div>
   )

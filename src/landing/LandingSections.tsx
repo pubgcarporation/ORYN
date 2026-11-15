@@ -166,7 +166,7 @@ export function Transparency() {
   const points = [
     { icon: Scale, title: 'Clear liquidation rules', text: 'If a position falls below a health factor of 1, a liquidator can repay up to half the debt and receive a 5% bonus.' },
     { icon: LockKeyhole, title: 'Caps and a pause switch', text: 'Markets support supply and borrow caps, and new borrowing can be paused while repayments and withdrawals stay open.' },
-    { icon: Zap, title: 'Owner-set EURC price', text: 'This testnet demo uses an owner-updated EURC price, not an independent feed. Do not use it with real funds.' },
+    { icon: Zap, title: 'Chainlink prices', text: 'EURC and USDC are priced from Chainlink feeds, and borrowing and liquidations pause if a price goes stale. On testnet the Arc mainnet Chainlink prices are relayed onto the testnet feeds.' },
   ]
   return (
     <Section id="security" eyebrow="Transparency" title="Know exactly what you are using">

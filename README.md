@@ -14,7 +14,7 @@ Built with [Arc Studio](https://studio.arc.io)
 - Bridge: move USDC between Arc Testnet and Ethereum Sepolia, Base Sepolia, Arbitrum Sepolia or Polygon Amoy.
 - Positions: see what you supplied and owe, your borrow limit and your health factor.
 
-This is a testnet demo. The EURC price is set by the market owner, not by an independent price feed, so it should not be used with real funds.
+Prices for EURC and USDC come from Chainlink feeds, not from the market owner, and borrowing and liquidations pause if a price goes stale. Arc Testnet has no Chainlink feeds yet, so on testnet the Arc mainnet Chainlink prices are copied onto testnet feeds by a relay script. This is a testnet demo and should not be used with real funds.
 
 ## Tech stack
 
@@ -38,11 +38,14 @@ Other scripts:
 bun run check            # lint and typecheck
 bun run contracts:build  # compile the contract
 bun run contracts:test   # run contract tests
+bun run relay:price      # copy the latest Chainlink prices onto the testnet feeds (add -- --watch to keep it running)
 ```
 
 ### Environment variables
 
 - `VITE_LENDING_POOL_ADDRESS`: address of the deployed market contract on Arc Testnet.
 - `VITE_EURC_ADDRESS`: address of the EURC token on Arc Testnet.
+- `VITE_EURC_PRICE_FEED_ADDRESS`, `VITE_USDC_PRICE_FEED_ADDRESS`: the testnet price feeds the market reads. Only used by the relay script.
+- `RELAYER_PRIVATE_KEY`: private key of the account allowed to update those feeds. Only used by the relay script. Keep it secret and never commit it.
 - `VITE_PRIVY_APP_ID`: your Privy app ID. Required for sign-in. Enable Google as a login method in the Privy dashboard and add your app's origin to its allowed origins.
 - `RPC_PROXY_BASE_URL`, `RPC_PROXY_TOKEN`, `RPC_PROXY_CHAINS`: optional outside Arc Studio. Only used by backend code, which this app does not have.

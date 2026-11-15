@@ -10,9 +10,8 @@ contract OrynPoolLiquidationTest is OrynPoolTestBase {
     uint256 internal constant P2 = 133_366_200; // P1 + 10%
 
     /// @dev bob: 1000 USDC collateral, 700 EURC debt. Liquidatable once EURC > ~1.2143 USD.
+    ///      A single Chainlink round moves the price straight to P2 (no 10% step limit any more).
     function _raisePriceTwice() internal {
-        skip(1 days);
-        _setPrice(P1);
         skip(1 days);
         _setPrice(P2);
     }
@@ -31,6 +30,7 @@ contract OrynPoolLiquidationTest is OrynPoolTestBase {
 
     // ---------------------------------------------------------------- underlying payout (EURC debt / USDC collateral)
     function test_Liquidate_RevertsWhileHealthy() public {
+        // (see also test_Liquidate_OnChainlinkDrop_* for the reverse direction)
         _bobPosition(700 * M);
         vm.prank(liq);
         vm.expectRevert(OrynPool.NotLiquidatable.selector);
@@ -140,6 +140,79 @@ contract OrynPoolLiquidationTest is OrynPoolTestBase {
         assertEq(seized, _ceil(_ceil(repaid, 1e8, pLow), 10_500, 10_000));
         assertTrue(paid);
         assertEq(eurc.balanceOf(liq) - liqEurc, seized);
+    }
+
+    // ---------------------------------------------------------------- Chainlink price drop
+    /// @dev bob: 1000 EURC collateral, 800 USDC debt (cap 826.65). A drop of EURC/USD to 0.90 makes the
+    ///      liquidation value 720 < 800 debt.
+    function test_Liquidate_OnChainlinkDrop_BecomesLiquidatableThenSucceeds() public {
+        _liquidity();
+        _deposit(bob, eurc, 1_000 * M);
+        _borrow(bob, usdc, 800 * M);
+
+        // healthy at the current price
+        assertGe(pool.getAccountData(bob).healthFactorWad, 1e18);
+        vm.prank(liq);
+        vm.expectRevert(OrynPool.NotLiquidatable.selector);
+        pool.liquidate(bob, address(usdc), address(eurc), 100 * M);
+
+        // Chainlink round: EURC/USD drops to 0.90
+        skip(1 hours);
+        uint256 pDrop = 90_000_000;
+        _setPrice(pDrop);
+        assertEq(pool.eurUsdPrice(), pDrop);
+        OrynPool.AccountData memory d = pool.getAccountData(bob);
+        assertLt(d.healthFactorWad, 1e18);
+        assertGt(d.borrowValueUsd, d.liquidationLimitUsd);
+
+        uint256 debtBefore = pool.debtBalanceOf(address(usdc), bob);
+        uint256 liqEurc = eurc.balanceOf(liq);
+        uint256 liqUsdc = usdc.balanceOf(liq);
+        vm.recordLogs();
+        vm.prank(liq);
+        pool.liquidate(bob, address(usdc), address(eurc), 200 * M);
+        (uint256 repaid, uint256 seized, bool paid) = _lastLiquidation();
+
+        assertApproxEqAbs(repaid, 200 * M, 1);
+        assertEq(seized, _ceil(_ceil(repaid, 1e8, pDrop), 10_500, 10_000)); // 233.33 EURC incl. 5% bonus
+        assertTrue(paid);
+        assertEq(liqUsdc - usdc.balanceOf(liq), repaid);
+        assertEq(eurc.balanceOf(liq) - liqEurc, seized);
+        assertApproxEqAbs(pool.debtBalanceOf(address(usdc), bob), debtBefore - repaid, 1);
+        assertApproxEqAbs(pool.supplyBalanceOf(address(eurc), bob), 1_000 * M - seized, 1);
+    }
+
+    function test_Liquidate_PriceRecoveryMakesPositionHealthyAgain() public {
+        _liquidity();
+        _deposit(bob, eurc, 1_000 * M);
+        _borrow(bob, usdc, 800 * M);
+        skip(1 hours);
+        _setPrice(90_000_000);
+        assertLt(pool.getAccountData(bob).healthFactorWad, 1e18);
+        skip(1 hours);
+        _setPrice(PRICE);
+        vm.prank(liq);
+        vm.expectRevert(OrynPool.NotLiquidatable.selector);
+        pool.liquidate(bob, address(usdc), address(eurc), 100 * M);
+    }
+
+    function test_Liquidate_UnderwaterButStaleFeedBlocksLiquidation_FreshRoundUnblocks() public {
+        _liquidity();
+        _deposit(bob, eurc, 1_000 * M);
+        _borrow(bob, usdc, 800 * M);
+        skip(1 hours);
+        _setPrice(90_000_000);
+        uint256 pushedAt = block.timestamp;
+
+        skip(2 days + 1); // feed heartbeat missed
+        vm.prank(liq);
+        vm.expectRevert(abi.encodeWithSelector(OrynPool.StalePrice.selector, pushedAt, 2 days));
+        pool.liquidate(bob, address(usdc), address(eurc), 100 * M);
+
+        _setPrice(90_000_000); // new round with fresh source timestamp, same answer
+        vm.prank(liq);
+        pool.liquidate(bob, address(usdc), address(eurc), 100 * M);
+        assertLt(pool.debtBalanceOf(address(usdc), bob), 800 * M);
     }
 
     // ---------------------------------------------------------------- share payout (collateral market has no cash)

@@ -18,6 +18,10 @@ import {Create2Factory} from "./Create2Factory.sol";
 ///                         thin wrapper script that constructs `abi.encodePacked(type(Target).creationCode, abi.encode(...))`)
 ///   DEPLOY_VALUE        - optional wei amount to forward to the target's constructor (default 0)
 ///
+/// For OrynPool, append abi.encode(initialOwner, usdc, eurc, usdcUsdFeed, eurcUsdFeed), all addresses.
+/// The fourth and fifth arguments are configured AggregatorV3 feed addresses, never numeric prices.
+/// On Arc Testnet use the corresponding mirror addresses, not mainnet proxy addresses.
+///
 /// `CREATE2_SALT` is read via `vm.envBytes32` directly. If you'd rather derive the salt from a
 /// human-readable string, read it with `vm.envString("CREATE2_SALT_STRING")` and hash it yourself
 /// (`keccak256(bytes(saltString))`) before use — either approach is fine, this script takes the

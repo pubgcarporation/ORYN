@@ -1,13 +1,20 @@
 {
-  "contractAddress": "0xce5103b59952bf9a7848f55ab3f60a121ffd43c0",
+  "contractAddress": "0x0fbd3b837e062f1f4d8f70c7952b8384e4816ab3",
   "network": "ARC-TESTNET",
   "deployerWalletId": "3c2464b2-8369-52e2-a782-800bbeca5396",
   "contract_code_path": "/home/user/app/contracts/OrynPool.sol",
   "contract_compiled_code_path": "/home/user/app/contracts/out/OrynPool.sol/OrynPool.json",
   "contract_network_and_links": {
-    "Arc Testnet": "https://explorer.testnet.arc.io/address/0xce5103b59952bf9a7848f55ab3f60a121ffd43c0"
+    "Arc Testnet": "https://explorer.testnet.arc.io/address/0x0fbd3b837e062f1f4d8f70c7952b8384e4816ab3"
   },
   "contract_deployments": [
+    {
+      "chain": "Arc Testnet",
+      "address": "0x0fbd3b837e062f1f4d8f70c7952b8384e4816ab3",
+      "explorerUrl": "https://explorer.testnet.arc.io/address/0x0fbd3b837e062f1f4d8f70c7952b8384e4816ab3",
+      "txHash": "0x78ac12f0bb693033b2a2bca9227803284718deb9e663486b95f2c0ce67e664e8",
+      "deployedAt": "2026-11-15T15:05:44.289Z"
+    },
     {
       "chain": "Arc Testnet",
       "address": "0xce5103b59952bf9a7848f55ab3f60a121ffd43c0",
@@ -36,9 +43,14 @@
           "internalType": "address"
         },
         {
-          "name": "initialEurUsdPrice",
-          "type": "uint256",
-          "internalType": "uint256"
+          "name": "usdcUsdFeed_",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "eurcUsdFeed_",
+          "type": "address",
+          "internalType": "address"
         }
       ],
       "stateMutability": "nonpayable"
@@ -104,45 +116,6 @@
           "name": "",
           "type": "address",
           "internalType": "address"
-        }
-      ],
-      "stateMutability": "view"
-    },
-    {
-      "type": "function",
-      "name": "MAX_EUR_PRICE",
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "",
-          "type": "uint256",
-          "internalType": "uint256"
-        }
-      ],
-      "stateMutability": "view"
-    },
-    {
-      "type": "function",
-      "name": "MAX_PRICE_STEP_BPS",
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "",
-          "type": "uint256",
-          "internalType": "uint256"
-        }
-      ],
-      "stateMutability": "view"
-    },
-    {
-      "type": "function",
-      "name": "MIN_EUR_PRICE",
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "",
-          "type": "uint256",
-          "internalType": "uint256"
         }
       ],
       "stateMutability": "view"
@@ -299,13 +272,6 @@
     },
     {
       "type": "function",
-      "name": "applyPendingPrice",
-      "inputs": [],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "type": "function",
       "name": "applyPendingRiskParams",
       "inputs": [
         {
@@ -371,13 +337,6 @@
         }
       ],
       "stateMutability": "view"
-    },
-    {
-      "type": "function",
-      "name": "cancelPendingPrice",
-      "inputs": [],
-      "outputs": [],
-      "stateMutability": "nonpayable"
     },
     {
       "type": "function",
@@ -472,6 +431,19 @@
     },
     {
       "type": "function",
+      "name": "eurcUsdFeed",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "contract AggregatorV3Interface"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "eurcUsdPrice",
       "inputs": [],
       "outputs": [
@@ -479,6 +451,19 @@
           "name": "",
           "type": "uint256",
           "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "feedDecimals",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint8",
+          "internalType": "uint8"
         }
       ],
       "stateMutability": "view"
@@ -870,19 +855,6 @@
     },
     {
       "type": "function",
-      "name": "nextPriceUpdateTime",
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "",
-          "type": "uint256",
-          "internalType": "uint256"
-        }
-      ],
-      "stateMutability": "view"
-    },
-    {
-      "type": "function",
       "name": "owner",
       "inputs": [],
       "outputs": [
@@ -916,19 +888,6 @@
     },
     {
       "type": "function",
-      "name": "pendingEurUsdPrice",
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "",
-          "type": "uint256",
-          "internalType": "uint256"
-        }
-      ],
-      "stateMutability": "view"
-    },
-    {
-      "type": "function",
       "name": "pendingOwner",
       "inputs": [],
       "outputs": [
@@ -936,19 +895,6 @@
           "name": "",
           "type": "address",
           "internalType": "address"
-        }
-      ],
-      "stateMutability": "view"
-    },
-    {
-      "type": "function",
-      "name": "pendingPriceEta",
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "",
-          "type": "uint256",
-          "internalType": "uint256"
         }
       ],
       "stateMutability": "view"
@@ -1027,6 +973,19 @@
           "name": "withinBorrowLimit",
           "type": "bool",
           "internalType": "bool"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "priceFeed",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
         }
       ],
       "stateMutability": "view"
@@ -1180,32 +1139,6 @@
     },
     {
       "type": "function",
-      "name": "setEurUsdPrice",
-      "inputs": [
-        {
-          "name": "price8",
-          "type": "uint256",
-          "internalType": "uint256"
-        }
-      ],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "type": "function",
-      "name": "setEurcPrice",
-      "inputs": [
-        {
-          "name": "price8",
-          "type": "uint256",
-          "internalType": "uint256"
-        }
-      ],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "type": "function",
       "name": "setMaxPriceAge",
       "inputs": [
         {
@@ -1317,6 +1250,58 @@
       "inputs": [],
       "outputs": [],
       "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "usdcFeedDecimals",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint8",
+          "internalType": "uint8"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "usdcPriceUpdatedAt",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "usdcUsdFeed",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "contract AggregatorV3Interface"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "usdcUsdPrice",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
     },
     {
       "type": "function",
@@ -1587,50 +1572,6 @@
           "type": "address",
           "indexed": false,
           "internalType": "address"
-        }
-      ],
-      "anonymous": false
-    },
-    {
-      "type": "event",
-      "name": "PriceUpdateCancelled",
-      "inputs": [],
-      "anonymous": false
-    },
-    {
-      "type": "event",
-      "name": "PriceUpdateQueued",
-      "inputs": [
-        {
-          "name": "price8",
-          "type": "uint256",
-          "indexed": false,
-          "internalType": "uint256"
-        },
-        {
-          "name": "eta",
-          "type": "uint256",
-          "indexed": false,
-          "internalType": "uint256"
-        }
-      ],
-      "anonymous": false
-    },
-    {
-      "type": "event",
-      "name": "PriceUpdated",
-      "inputs": [
-        {
-          "name": "price8",
-          "type": "uint256",
-          "indexed": false,
-          "internalType": "uint256"
-        },
-        {
-          "name": "updatedAt",
-          "type": "uint256",
-          "indexed": false,
-          "internalType": "uint256"
         }
       ],
       "anonymous": false
@@ -1936,11 +1877,6 @@
     },
     {
       "type": "error",
-      "name": "NoPendingPrice",
-      "inputs": []
-    },
-    {
-      "type": "error",
       "name": "NoPendingRiskParams",
       "inputs": []
     },
@@ -1974,26 +1910,6 @@
     {
       "type": "error",
       "name": "OwnershipRenunciationDisabled",
-      "inputs": []
-    },
-    {
-      "type": "error",
-      "name": "PriceStepTooLarge",
-      "inputs": []
-    },
-    {
-      "type": "error",
-      "name": "PriceUpdateExpired",
-      "inputs": []
-    },
-    {
-      "type": "error",
-      "name": "PriceUpdateNotReady",
-      "inputs": []
-    },
-    {
-      "type": "error",
-      "name": "PriceUpdateTooSoon",
       "inputs": []
     },
     {
