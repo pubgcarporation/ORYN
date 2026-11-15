@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { Suspense, lazy, useEffect } from 'react'
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
 import { ArrowLeftRight, Landmark, PiggyBank, Repeat, Wallet } from 'lucide-react'
 import { usePool, useUser } from '@/hooks/usePool'
@@ -7,10 +7,15 @@ import { ConnectButton } from '@/auth/ConnectButton'
 import { Logo } from '@/components/Logo'
 import { MarketsPage } from '@/components/MarketsPage'
 import { PositionsPage } from '@/components/PositionsPage'
-import { SwapPage } from '@/components/SwapPage'
-import { BridgePage } from '@/components/BridgePage'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { NotFound } from '@/components/NotFound'
+import { Skeleton } from '@/components/ui'
 import { OracleBanner } from '@/components/OracleBanner'
 import { Landing } from '@/landing/Landing'
+
+// Swap and Bridge pull in the Circle App Kit, so they load only when someone opens them.
+const SwapPage = lazy(() => import('@/components/SwapPage').then((m) => ({ default: m.SwapPage })))
+const BridgePage = lazy(() => import('@/components/BridgePage').then((m) => ({ default: m.BridgePage })))
 
 type Tab = 'earn' | 'borrow' | 'swap' | 'bridge' | 'positions'
 
@@ -29,8 +34,9 @@ function tabFromPath(path: string): Tab | undefined {
 
 export default function App() {
   const path = usePath()
-  if (path !== '/app' && !path.startsWith('/app/')) return <Landing />
-  return <AppShell path={path} />
+  if (path === '/') return <Landing />
+  if (path === '/app' || path === '/app/' || tabFromPath(path)) return <AppShell path={path} />
+  return <NotFound />
 }
 
 function AppShell({ path }: { path: string }) {
@@ -82,11 +88,15 @@ function AppShell({ path }: { path: string }) {
           <OracleBanner pool={pool} />
           <AnimatePresence mode="wait">
             <motion.div key={active} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }}>
-              {active === 'earn' && <MarketsPage mode="lend" pool={pool} user={user} />}
-              {active === 'borrow' && <MarketsPage mode="borrow" pool={pool} user={user} />}
-              {active === 'swap' && <SwapPage />}
-              {active === 'bridge' && <BridgePage />}
-              {active === 'positions' && <PositionsPage pool={pool} user={user} />}
+              <ErrorBoundary resetKey={active}>
+                <Suspense fallback={<Skeleton className="mx-auto h-96 w-full max-w-md" />}>
+                  {active === 'earn' && <MarketsPage mode="lend" pool={pool} user={user} />}
+                  {active === 'borrow' && <MarketsPage mode="borrow" pool={pool} user={user} />}
+                  {active === 'swap' && <SwapPage />}
+                  {active === 'bridge' && <BridgePage />}
+                  {active === 'positions' && <PositionsPage pool={pool} user={user} />}
+                </Suspense>
+              </ErrorBoundary>
             </motion.div>
           </AnimatePresence>
         </main>

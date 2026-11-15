@@ -3,6 +3,7 @@ import { ASSET_LIST, fmtApr, fmtBps, fmtToken, fmtUsd8, valueUsd8, type AssetInf
 import type { PoolState, UserState } from '@/hooks/usePool'
 import { ActionSheet, type ActionKind } from '@/components/ActionSheet'
 import { BorrowSimulator } from '@/components/BorrowSimulator'
+import { OracleCard } from '@/components/OracleCard'
 import { RateCurve } from '@/components/RateCurve'
 import { FundWallet, PageTitle, Skeleton, Stat, TokenBadge } from '@/components/ui'
 
@@ -142,6 +143,8 @@ export function MarketsPage({ mode, pool, user }: Props) {
       {!lend && <BorrowSimulator pool={pool} user={user} />}
 
       <RateCurve pool={pool} />
+
+      <OracleCard pool={pool} />
 
       {sheet && <ActionSheet action={sheet.action} symbol={sheet.symbol} pool={pool} user={user} onClose={() => setSheet(null)} />}
     </div>

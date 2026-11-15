@@ -5,6 +5,8 @@ import { buildAddressExplorerUrl } from '@/onchain-facts'
 import { ARC_ID, ASSET_LIST, POOL_ADDRESS, fmtApr, fmtHealth, fmtToken, fmtUsd8, healthTone, valueUsd8, type AssetSymbol } from '@/lib/pool'
 import type { PoolState, UserState } from '@/hooks/usePool'
 import { ActionSheet, type ActionKind } from '@/components/ActionSheet'
+import { ActivityFeed } from '@/components/ActivityFeed'
+import { Insights } from '@/components/Insights'
 import { PageTitle, Stat, TokenBadge } from '@/components/ui'
 
 const TONE = { none: 'var(--ink)', safe: 'var(--success)', warn: 'var(--warn)', danger: 'var(--danger)' } as const
@@ -105,6 +107,10 @@ export function PositionsPage({ pool, user }: { pool: PoolState; user: UserState
           ))}
         </div>
       )}
+
+      <Insights pool={pool} user={user} />
+
+      {user.address && <ActivityFeed address={user.address} />}
 
       <a
         href={buildAddressExplorerUrl(ARC_ID, POOL_ADDRESS)}
