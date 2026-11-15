@@ -1,0 +1,23 @@
+# dependencies and build output
+node_modules/
+dist/
+contracts/out/
+contracts/cache/
+lib/
+
+# secrets and local state
+.env
+.env.*
+!.env.example
+.circle/
+recovery_file*
+*.log
+console.jsonl
+traces.jsonl
+
+# tooling
+.agents/
+.DS_Store
+
+# GitHub panel clone
+Oryn/
