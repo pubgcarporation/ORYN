@@ -3,7 +3,7 @@ node_modules/
 dist/
 contracts/out/
 contracts/cache/
-lib/
+/lib/
 
 # secrets and local state
 .env

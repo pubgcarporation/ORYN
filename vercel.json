@@ -1,0 +1,43 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "buildCommand": "bun run build",
+  "outputDirectory": "dist",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
+      ]
+    }
+  ],
+  "build": {
+    "env": {
+      "VITE_LENDING_POOL_ADDRESS": "0x475a06699235e3be4e22dabaa30f3d3aa4ef82fa",
+      "VITE_EURC_ADDRESS": "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a",
+      "VITE_PRIVY_APP_ID": "cmwhmtd2o00j70hjrc0oi1c7g"
+    }
+  }
+}
