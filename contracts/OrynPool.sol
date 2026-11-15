@@ -16,8 +16,11 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
  * Expected testnet assets: USDC 0x3600000000000000000000000000000000000000 and
  * EURC 0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a. Addresses are constructor inputs.
  * WARNING: the owner-fed EUR/USD oracle is TESTNET GRADE. Replace it with a real,
- * independently secured feed before any mainnet use. Oracle views are indicative even
- * when stale; risk-increasing actions and liquidations enforce freshness.
+ * independently secured feed before any mainnet use. Owner price changes are publicly
+ * queued with a 6-hour delay and expire 3 days after their ETA, allowing suppliers time
+ * to exit subject to existing withdrawal checks. The constructor sets the initial price
+ * immediately. Oracle views are indicative even when stale; risk-increasing actions
+ * and liquidations enforce freshness.
  *
  * Balances use fixed-origin 1e18 indexes, not cash/share exchange rates. Donations never
  * increase an index, so the first depositor cannot inflate the share price by donating.
@@ -50,12 +53,16 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
     uint256 public constant MIN_EUR_PRICE = 50_000_000;
     uint256 public constant MAX_EUR_PRICE = 200_000_000;
     uint256 public constant MAX_PRICE_STEP_BPS = 1_000;
+    uint256 public constant PRICE_UPDATE_DELAY = 6 hours;
+    uint256 public constant PRICE_UPDATE_EXPIRY = 3 days;
 
     address public immutable USDC;
     address public immutable EURC;
     uint256 public eurUsdPrice;
     uint256 public priceUpdatedAt;
     uint256 public maxPriceAge = 7 days;
+    uint256 public pendingEurUsdPrice;
+    uint256 public pendingPriceEta;
 
     struct Reserve {
         uint256 supplyIndex;
@@ -69,6 +76,15 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
         uint256 ltv;
         uint256 liquidationThreshold;
         uint256 liquidationBonus;
+    }
+
+    struct PendingRiskParams {
+        uint256 ltv;
+        uint256 liquidationThreshold;
+        uint256 liquidationBonus;
+        uint256 supplyCap;
+        uint256 borrowCap;
+        uint256 eta;
     }
 
     struct Snapshot {
@@ -140,6 +156,7 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
     }
 
     mapping(address asset => Reserve) private _reserves;
+    mapping(address asset => PendingRiskParams) private _pendingRiskParams;
     mapping(address asset => mapping(address user => uint256)) public scaledSupplyOf;
     mapping(address asset => mapping(address user => uint256)) public scaledDebtOf;
 
@@ -149,9 +166,15 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
     error ZeroAmount();
     error ZeroShares();
     error InvalidRiskParams();
+    error NoPendingRiskParams();
+    error RiskParamsNotReady();
+    error RiskParamsExpired();
     error InvalidPrice();
     error PriceStepTooLarge();
     error PriceUpdateTooSoon();
+    error NoPendingPrice();
+    error PriceUpdateNotReady();
+    error PriceUpdateExpired();
     error OwnershipRenunciationDisabled();
     error InvalidMaxPriceAge();
     error StalePrice(uint256 updatedAt, uint256 maximumAge);
@@ -174,7 +197,12 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
         address collateralAsset, uint256 repaid, uint256 seized, bool paidUnderlying);
     event ParamsUpdated(address indexed asset, uint256 ltv, uint256 liquidationThreshold,
         uint256 liquidationBonus, uint256 supplyCap, uint256 borrowCap);
+    event RiskParamsQueued(address indexed asset, uint256 ltv, uint256 liquidationThreshold,
+        uint256 liquidationBonus, uint256 supplyCap, uint256 borrowCap, uint256 eta);
+    event RiskParamsCancelled(address indexed asset);
     event PriceUpdated(uint256 price8, uint256 updatedAt);
+    event PriceUpdateQueued(uint256 price8, uint256 eta);
+    event PriceUpdateCancelled();
     event MaxPriceAgeUpdated(uint256 maximumAge);
     event ReservesCollected(address indexed asset, address indexed to, uint256 amount);
     event Accrued(address indexed asset, uint256 supplyIndex, uint256 borrowIndex,
@@ -343,20 +371,59 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
         _syncReserves(collateralAsset);
     }
 
+    /// @notice Queues risk parameters for an asset without changing its current parameters.
+    /// @dev Replaces any proposal for that asset with a new 6-hour delay; the owner must apply it
+    /// within 3 days after its ETA. Constructor initialization still sets initial parameters immediately.
     function setRiskParams(address asset, uint256 ltv, uint256 liquidationThreshold,
         uint256 liquidationBonus, uint256 supplyCap, uint256 borrowCap)
         external onlyOwner nonReentrant
     {
         _requireAsset(asset);
         _validateRiskParams(ltv, liquidationThreshold, liquidationBonus);
+        uint256 eta = block.timestamp + PRICE_UPDATE_DELAY;
+        _pendingRiskParams[asset] = PendingRiskParams({
+            ltv: ltv,
+            liquidationThreshold: liquidationThreshold,
+            liquidationBonus: liquidationBonus,
+            supplyCap: supplyCap,
+            borrowCap: borrowCap,
+            eta: eta
+        });
+        emit RiskParamsQueued(asset, ltv, liquidationThreshold, liquidationBonus, supplyCap, borrowCap, eta);
+    }
+
+    /// @notice Applies an asset's queued risk parameters after the delay and within 3 days of its ETA.
+    /// @dev Accrues both markets before updating the reserve and clears the applied proposal.
+    function applyPendingRiskParams(address asset) external onlyOwner nonReentrant {
+        PendingRiskParams memory pending = _pendingRiskParams[asset];
+        if (pending.eta == 0) revert NoPendingRiskParams();
+        if (block.timestamp < pending.eta) revert RiskParamsNotReady();
+        if (block.timestamp > pending.eta + PRICE_UPDATE_EXPIRY) revert RiskParamsExpired();
         _accrueAll();
         Reserve storage r = _reserves[asset];
-        r.ltv = ltv;
-        r.liquidationThreshold = liquidationThreshold;
-        r.liquidationBonus = liquidationBonus;
-        r.supplyCap = supplyCap;
-        r.borrowCap = borrowCap;
-        emit ParamsUpdated(asset, ltv, liquidationThreshold, liquidationBonus, supplyCap, borrowCap);
+        r.ltv = pending.ltv;
+        r.liquidationThreshold = pending.liquidationThreshold;
+        r.liquidationBonus = pending.liquidationBonus;
+        r.supplyCap = pending.supplyCap;
+        r.borrowCap = pending.borrowCap;
+        emit ParamsUpdated(asset, pending.ltv, pending.liquidationThreshold, pending.liquidationBonus,
+            pending.supplyCap, pending.borrowCap);
+        delete _pendingRiskParams[asset];
+    }
+
+    /// @notice Clears an asset's queued risk parameters without changing its current parameters.
+    function cancelPendingRiskParams(address asset) external onlyOwner {
+        delete _pendingRiskParams[asset];
+        emit RiskParamsCancelled(asset);
+    }
+
+    /// @notice Returns an asset's pending risk parameters and ETA; all are zero if no proposal exists.
+    function pendingRiskParams(address asset) public view returns (uint256 ltv, uint256 liquidationThreshold,
+        uint256 liquidationBonus, uint256 supplyCap, uint256 borrowCap, uint256 eta)
+    {
+        PendingRiskParams storage pending = _pendingRiskParams[asset];
+        return (pending.ltv, pending.liquidationThreshold, pending.liquidationBonus,
+            pending.supplyCap, pending.borrowCap, pending.eta);
     }
 
     function _validateRiskParams(uint256 ltv, uint256 liquidationThreshold, uint256 liquidationBonus)
@@ -367,27 +434,52 @@ contract OrynPool is Ownable2Step, Pausable, ReentrancyGuard {
         }
     }
 
-    /// @notice Updates the owner-fed oracle by at most 10% per call.
-    /// @dev Compatibility alias for setEurcPrice; this is a testnet-grade trusted oracle.
+    /// @notice Queues an 8-decimal EURC/USD price in [0.50, 2.00], at most 10% from the current price.
+    /// @dev Compatibility alias for setEurcPrice; replaces any proposal with a new 6-hour delay.
+    /// The owner must apply it within 3 days after its ETA; the current price is unchanged until then.
     function setEurUsdPrice(uint256 price8) external onlyOwner nonReentrant {
         _updatePrice(price8);
     }
 
-    /// @notice Sets an 8-decimal EURC/USD price in [0.50, 2.00], moving at most 10%.
+    /// @notice Queues an 8-decimal EURC/USD price in [0.50, 2.00], at most 10% from the current price.
+    /// @dev Replaces any proposal with a new 6-hour delay; the owner must apply it within
+    /// 3 days after its ETA. Queuing does not change the current price or its freshness.
     function setEurcPrice(uint256 price8) external onlyOwner nonReentrant {
         _updatePrice(price8);
     }
 
     function _updatePrice(uint256 price8) private {
+        if (price8 < MIN_EUR_PRICE || price8 > MAX_EUR_PRICE) revert InvalidPrice();
         uint256 difference = price8 > eurUsdPrice ? price8 - eurUsdPrice : eurUsdPrice - price8;
         if (difference > Math.mulDiv(eurUsdPrice, MAX_PRICE_STEP_BPS, BPS)) revert PriceStepTooLarge();
-        _accrueAll();
-        _setPrice(price8);
+        pendingEurUsdPrice = price8;
+        pendingPriceEta = block.timestamp + PRICE_UPDATE_DELAY;
+        emit PriceUpdateQueued(price8, pendingPriceEta);
     }
 
-    /// @notice Compatibility view: updates have no time-based cooldown.
+    /// @notice Applies the queued price after its delay and no later than 3 days after its ETA.
+    function applyPendingPrice() external onlyOwner nonReentrant {
+        uint256 eta = pendingPriceEta;
+        if (eta == 0) revert NoPendingPrice();
+        if (block.timestamp < eta) revert PriceUpdateNotReady();
+        if (block.timestamp > eta + PRICE_UPDATE_EXPIRY) revert PriceUpdateExpired();
+        uint256 pending = pendingEurUsdPrice;
+        _accrueAll();
+        _setPrice(pending);
+        pendingEurUsdPrice = 0;
+        pendingPriceEta = 0;
+    }
+
+    /// @notice Clears the queued price proposal without changing the current price.
+    function cancelPendingPrice() external onlyOwner {
+        pendingEurUsdPrice = 0;
+        pendingPriceEta = 0;
+        emit PriceUpdateCancelled();
+    }
+
+    /// @notice Compatibility view: returns the pending price's ETA, or zero if no proposal exists.
     function nextPriceUpdateTime() public view returns (uint256) {
-        return priceUpdatedAt;
+        return pendingPriceEta;
     }
 
     function setMaxPriceAge(uint256 maximumAge) external onlyOwner nonReentrant {

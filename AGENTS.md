@@ -45,9 +45,9 @@ bun run dev
 
 ## Deployed contracts
 
-- OrynPool (market) on Arc Testnet: `0x475a06699235e3be4e22dabaa30f3d3aa4ef82fa`
-  - Constructor order: (owner, usdc, eurc, initialEurUsdPrice). Owner is the shared platform deployer wallet, so owner-only calls (setEurcPrice, setRiskParams, pause) cannot be made from the user's wallet. maxPriceAge is 7 days; after that, borrowing and liquidation pause until the price is refreshed. Redeploy from the user's own wallet to control the oracle.
-  - Earlier deployments of the same code under the old name are unused.
+- OrynPool (market) on Arc Testnet: `0xce5103b59952bf9a7848f55ab3f60a121ffd43c0` (current). Price and risk-parameter changes are now queued behind a 6-hour timelock (queue, apply, cancel).
+  - Constructor order: (owner, usdc, eurc, initialEurUsdPrice). Initial price 1.08 (108000000). Owner is the shared platform deployer wallet, so owner-only calls (setEurcPrice, applyPendingPrice, setRiskParams, pause) cannot be made from the user's wallet. maxPriceAge is 7 days; after that, borrowing and liquidation pause until the price is refreshed. Redeploy from the user's own wallet to control the oracle.
+  - Earlier deployments (`0x475a06699235e3be4e22dabaa30f3d3aa4ef82fa` and older) are unused.
 - Frontend reads `VITE_LENDING_POOL_ADDRESS` and `VITE_EURC_ADDRESS` from `.env`.
 
 ## Auth and routing

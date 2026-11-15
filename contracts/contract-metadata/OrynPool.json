@@ -1,19 +1,19 @@
 {
-  "contractAddress": "0x475a06699235e3be4e22dabaa30f3d3aa4ef82fa",
+  "contractAddress": "0xce5103b59952bf9a7848f55ab3f60a121ffd43c0",
   "network": "ARC-TESTNET",
   "deployerWalletId": "3c2464b2-8369-52e2-a782-800bbeca5396",
   "contract_code_path": "/home/user/app/contracts/OrynPool.sol",
   "contract_compiled_code_path": "/home/user/app/contracts/out/OrynPool.sol/OrynPool.json",
   "contract_network_and_links": {
-    "Arc Testnet": "https://explorer.testnet.arc.io/address/0x475a06699235e3be4e22dabaa30f3d3aa4ef82fa"
+    "Arc Testnet": "https://explorer.testnet.arc.io/address/0xce5103b59952bf9a7848f55ab3f60a121ffd43c0"
   },
   "contract_deployments": [
     {
       "chain": "Arc Testnet",
-      "address": "0x475a06699235e3be4e22dabaa30f3d3aa4ef82fa",
-      "explorerUrl": "https://explorer.testnet.arc.io/address/0x475a06699235e3be4e22dabaa30f3d3aa4ef82fa",
-      "txHash": "0xb7b67b76a02411a97703f5d3dd5de119d598fe155fc22beebde686e4a3a2a065",
-      "deployedAt": "2026-11-15T09:09:27.219Z"
+      "address": "0xce5103b59952bf9a7848f55ab3f60a121ffd43c0",
+      "explorerUrl": "https://explorer.testnet.arc.io/address/0xce5103b59952bf9a7848f55ab3f60a121ffd43c0",
+      "txHash": "0x59b05023f14a6e1e115b2e27490f1329e80a434e9bdf3c40b7732305543c8b39",
+      "deployedAt": "2026-11-15T10:47:06.203Z"
     }
   ],
   "abi": [
@@ -162,6 +162,32 @@
     },
     {
       "type": "function",
+      "name": "PRICE_UPDATE_DELAY",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "PRICE_UPDATE_EXPIRY",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "RAY",
       "inputs": [],
       "outputs": [
@@ -273,6 +299,26 @@
     },
     {
       "type": "function",
+      "name": "applyPendingPrice",
+      "inputs": [],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "applyPendingRiskParams",
+      "inputs": [
+        {
+          "name": "asset",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
       "name": "assets",
       "inputs": [],
       "outputs": [
@@ -325,6 +371,26 @@
         }
       ],
       "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "cancelPendingPrice",
+      "inputs": [],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "cancelPendingRiskParams",
+      "inputs": [
+        {
+          "name": "asset",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
     },
     {
       "type": "function",
@@ -850,6 +916,19 @@
     },
     {
       "type": "function",
+      "name": "pendingEurUsdPrice",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "pendingOwner",
       "inputs": [],
       "outputs": [
@@ -857,6 +936,63 @@
           "name": "",
           "type": "address",
           "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "pendingPriceEta",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "pendingRiskParams",
+      "inputs": [
+        {
+          "name": "asset",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "ltv",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "liquidationThreshold",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "liquidationBonus",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "supplyCap",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "borrowCap",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "eta",
+          "type": "uint256",
+          "internalType": "uint256"
         }
       ],
       "stateMutability": "view"
@@ -1457,6 +1593,31 @@
     },
     {
       "type": "event",
+      "name": "PriceUpdateCancelled",
+      "inputs": [],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "PriceUpdateQueued",
+      "inputs": [
+        {
+          "name": "price8",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        },
+        {
+          "name": "eta",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
       "name": "PriceUpdated",
       "inputs": [
         {
@@ -1548,6 +1709,68 @@
         },
         {
           "name": "protocolReserves",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "RiskParamsCancelled",
+      "inputs": [
+        {
+          "name": "asset",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "RiskParamsQueued",
+      "inputs": [
+        {
+          "name": "asset",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "ltv",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        },
+        {
+          "name": "liquidationThreshold",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        },
+        {
+          "name": "liquidationBonus",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        },
+        {
+          "name": "supplyCap",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        },
+        {
+          "name": "borrowCap",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        },
+        {
+          "name": "eta",
           "type": "uint256",
           "indexed": false,
           "internalType": "uint256"
@@ -1713,6 +1936,16 @@
     },
     {
       "type": "error",
+      "name": "NoPendingPrice",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "NoPendingRiskParams",
+      "inputs": []
+    },
+    {
+      "type": "error",
       "name": "NotLiquidatable",
       "inputs": []
     },
@@ -1750,12 +1983,32 @@
     },
     {
       "type": "error",
+      "name": "PriceUpdateExpired",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "PriceUpdateNotReady",
+      "inputs": []
+    },
+    {
+      "type": "error",
       "name": "PriceUpdateTooSoon",
       "inputs": []
     },
     {
       "type": "error",
       "name": "ReentrancyGuardReentrantCall",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "RiskParamsExpired",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "RiskParamsNotReady",
       "inputs": []
     },
     {
