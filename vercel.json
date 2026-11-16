@@ -5,7 +5,7 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
   ],
@@ -42,6 +42,11 @@
       "VITE_USDC_PRICE_FEED_ADDRESS": "0x9079cfc19553b44d724c92e4aa8b9c41d2f12c6b",
       "VITE_BTC_PRICE_FEED_ADDRESS": "0x2ccf7c5c2681fee5ebc309827b9a1d481218bfd3",
       "VITE_PRIVY_APP_ID": "cmwhmtd2o00j70hjrc0oi1c7g"
+    }
+  },
+  "functions": {
+    "api/**/*.ts": {
+      "maxDuration": 60
     }
   }
 }

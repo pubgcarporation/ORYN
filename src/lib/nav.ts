@@ -1,6 +1,6 @@
-import { ArrowLeftRight, Landmark, Repeat, Wallet } from 'lucide-react'
+import { ArrowLeftRight, Landmark, Repeat, Sparkles, Wallet } from 'lucide-react'
 
-export type MainTab = 'markets' | 'swap' | 'bridge' | 'positions'
+export type MainTab = 'markets' | 'swap' | 'bridge' | 'assistant' | 'positions'
 /** Pages opened from the account panel, not from the main navigation. */
 export type ExtraTab = 'leaderboard' | 'analytics'
 export type Tab = MainTab | ExtraTab
@@ -11,6 +11,7 @@ export const TABS: { id: MainTab; label: string; hint: string; icon: typeof Land
   { id: 'markets', label: 'Markets', hint: 'Supply, borrow and repay', icon: Landmark },
   { id: 'swap', label: 'Swap', hint: 'Trade USDC and EURC', icon: Repeat },
   { id: 'bridge', label: 'Bridge', hint: 'Move USDC between networks', icon: ArrowLeftRight },
+  { id: 'assistant', label: 'Assistant', hint: 'Send, swap, bridge by chat', icon: Sparkles },
   { id: 'positions', label: 'Positions', hint: 'Balances and health', icon: Wallet },
 ]
 

@@ -77,6 +77,12 @@ body {
     border-radius: 1rem;
   }
 
+  /* Amount fields draw no outline of their own, so the box around them shows where focus is. */
+  .inner:focus-within {
+    border-color: var(--border-strong);
+    box-shadow: 0 0 0 3px rgba(185, 166, 255, 0.14);
+  }
+
   .label {
     font-size: 0.6875rem;
     font-weight: 600;

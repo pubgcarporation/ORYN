@@ -41,7 +41,7 @@ export function StatsStrip({ pool }: { pool: PoolState }) {
     <div className="mx-auto max-w-6xl px-4">
       <div className="card grid grid-cols-2 overflow-hidden sm:grid-cols-4">
         {items.map((s, i) => (
-          <div key={s.label} className={`p-4 sm:p-5 ${i % 2 === 0 ? 'border-r' : ''} border-b sm:border-b-0 sm:border-r`} style={{ borderColor: 'var(--border)' }}>
+          <div key={s.label} className={`p-4 sm:border-r sm:p-5 ${i % 2 === 0 ? 'border-r' : ''} ${i < 2 ? 'border-b sm:border-b-0' : ''}`} style={{ borderColor: 'var(--border)' }}>
             <div className="label">{s.label}</div>
             <div className="display mt-1.5 text-xl font-semibold sm:text-2xl">
               {pool.loaded ? <CountUp value={Number(s.value) / 1e8} format={(n) => `$${n.toLocaleString('en-US', { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`} /> : <Skeleton className="h-8 w-28" />}

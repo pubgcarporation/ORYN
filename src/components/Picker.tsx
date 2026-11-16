@@ -28,6 +28,7 @@ export function Picker<T extends string>({ title, value, options, onChange, disa
   const [open, setOpen] = useState(false)
   const titleId = useId()
   const closeRef = useRef<HTMLButtonElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
   const selected = options.find((o) => o.id === value) ?? options[0]
 
   useEffect(() => {
@@ -37,15 +38,19 @@ export function Picker<T extends string>({ title, value, options, onChange, disa
     document.body.style.overflow = 'hidden'
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
     window.addEventListener('keydown', onKey)
+    const trigger = triggerRef.current
     return () => {
       document.body.style.overflow = previous
       window.removeEventListener('keydown', onKey)
+      // Give focus back to the pill that opened the sheet.
+      trigger?.focus({ preventScroll: true })
     }
   }, [open])
 
   return (
     <>
       <button
+        ref={triggerRef}
         type="button"
         disabled={disabled}
         onClick={() => setOpen(true)}
@@ -89,13 +94,14 @@ export function Picker<T extends string>({ title, value, options, onChange, disa
                   <X className="size-4" />
                 </button>
               </div>
-              <ul className="space-y-1" role="listbox" aria-labelledby={titleId}>
+              <ul className="space-y-1" aria-labelledby={titleId}>
                 {options.map((o) => {
                   const active = o.id === value
                   return (
-                    <li key={o.id} role="option" aria-selected={active}>
+                    <li key={o.id}>
                       <button
                         type="button"
+                        aria-pressed={active}
                         className="flex min-h-14 w-full items-center gap-3 rounded-2xl px-3 text-left transition-colors hover:bg-white/10"
                         style={{ background: active ? 'var(--surface-strong)' : 'transparent' }}
                         onClick={() => {

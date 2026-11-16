@@ -36,5 +36,13 @@ export default defineConfig({
   server: {
     allowedHosts: true,
     cors: true,
+    // The assistant's AI server runs on its own port and holds the model key.
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:3001',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+    },
   },
 })

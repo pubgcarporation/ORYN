@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { AnimatePresence } from 'framer-motion'
 import { ConnectCta } from '@/auth/ConnectCta'
 import { ExternalLink, ShieldCheck } from 'lucide-react'
 import { buildAddressExplorerUrl } from '@/onchain-facts'
@@ -89,14 +90,18 @@ export function PositionsPage({ pool, user }: { pool: PoolState; user: UserState
           <div className="relative -mt-[18px] h-[26px]">
             <div
               className="absolute top-0 size-[26px] -translate-x-1/2 rounded-full border-2"
-              style={{ left: `${gaugePct}%`, background: TONE[tone], borderColor: 'var(--bg)', transition: 'left 0.6s ease' }}
+              style={{ left: `clamp(13px, ${gaugePct}%, calc(100% - 13px))`, background: TONE[tone], borderColor: 'var(--bg)', transition: 'left 0.6s ease' }}
             />
           </div>
-          <div className="num mt-1 flex justify-between text-[11px]" style={{ color: 'var(--subtle)' }}>
-            <span>0</span>
-            <span>1.0 liquidation</span>
-            <span>1.5</span>
-            <span>3.0+</span>
+          <div className="num relative mt-1 h-4 text-[11px]" style={{ color: 'var(--subtle)' }} aria-hidden="true">
+            <span className="absolute left-0">0</span>
+            <span className="absolute -translate-x-1/2" style={{ left: `${(1 / 3) * 100}%` }}>
+              1.0
+            </span>
+            <span className="absolute -translate-x-1/2" style={{ left: '50%' }}>
+              1.5
+            </span>
+            <span className="absolute right-0">3.0+</span>
           </div>
         </div>
       </section>
@@ -169,7 +174,7 @@ export function PositionsPage({ pool, user }: { pool: PoolState; user: UserState
         View the market contract <ExternalLink className="size-3" />
       </a>
 
-      {sheet && <ActionSheet action={sheet.action} symbol={sheet.symbol} pool={pool} user={user} onClose={() => setSheet(null)} />}
+      <AnimatePresence>{sheet && <ActionSheet key={`${sheet.action}-${sheet.symbol}`} action={sheet.action} symbol={sheet.symbol} pool={pool} user={user} onClose={() => setSheet(null)} />}</AnimatePresence>
     </div>
   )
 }

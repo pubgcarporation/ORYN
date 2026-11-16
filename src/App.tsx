@@ -12,13 +12,17 @@ import { LeaderboardPage } from '@/components/LeaderboardPage'
 import { AnalyticsPage } from '@/components/AnalyticsPage'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { NotFound } from '@/components/NotFound'
-import { Skeleton } from '@/components/ui'
 import { OracleBanner } from '@/components/OracleBanner'
 import { Landing } from '@/landing/Landing'
 
-// Swap and Bridge pull in the Circle App Kit, so they load only when someone opens them.
-const SwapPage = lazy(() => import('@/components/SwapPage').then((m) => ({ default: m.SwapPage })))
-const BridgePage = lazy(() => import('@/components/BridgePage').then((m) => ({ default: m.BridgePage })))
+// Swap, Bridge and the Assistant pull in the Circle App Kit, so they are separate downloads.
+// They start downloading as soon as the app opens, so no loading layer shows when you click them.
+const loadSwap = () => import('@/components/SwapPage').then((m) => ({ default: m.SwapPage }))
+const loadBridge = () => import('@/components/BridgePage').then((m) => ({ default: m.BridgePage }))
+const loadAssistant = () => import('@/components/assistant/AssistantPage').then((m) => ({ default: m.AssistantPage }))
+const SwapPage = lazy(loadSwap)
+const BridgePage = lazy(loadBridge)
+const AssistantPage = lazy(loadAssistant)
 
 export default function App() {
   const path = usePath()
@@ -35,6 +39,11 @@ function AppShell({ path }: { path: string }) {
   useEffect(() => {
     if (!tab || isLegacyPath(path)) navigate('/app/markets', { replace: true })
   }, [tab, path])
+
+  // Warm the heavy pages right away, so opening them shows the page itself and not a placeholder.
+  useEffect(() => {
+    void Promise.allSettled([loadSwap(), loadBridge(), loadAssistant()])
+  }, [])
 
   const active: Tab = tab ?? 'markets'
 
@@ -62,10 +71,11 @@ function AppShell({ path }: { path: string }) {
           <AnimatePresence mode="wait">
             <motion.div key={active} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }}>
               <ErrorBoundary resetKey={active}>
-                <Suspense fallback={<Skeleton className="mx-auto h-96 w-full max-w-md" />}>
+                <Suspense fallback={null}>
                   {active === 'markets' && <MarketsPage pool={pool} user={user} />}
                   {active === 'swap' && <SwapPage />}
                   {active === 'bridge' && <BridgePage />}
+                  {active === 'assistant' && <AssistantPage />}
                   {active === 'positions' && <PositionsPage pool={pool} user={user} />}
                   {active === 'leaderboard' && <LeaderboardPage pool={pool} />}
                   {active === 'analytics' && <AnalyticsPage pool={pool} />}
@@ -80,7 +90,7 @@ function AppShell({ path }: { path: string }) {
           style={{ borderColor: 'var(--border)', background: 'var(--panel)', backdropFilter: 'blur(16px)' }}
           aria-label="Primary mobile"
         >
-          <div className="mx-auto grid max-w-md grid-cols-4">
+          <div className="mx-auto grid max-w-md grid-cols-5">
             {TABS.map(({ id, label, icon: Icon }) => (
               <Link
                 key={id}

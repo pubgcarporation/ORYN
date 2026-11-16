@@ -59,12 +59,12 @@ export function StackedBars({ data, series, format = compact, ariaLabel }: { dat
           const heights = series.map((sr) => (max > 0 ? ((d.values[sr.key] ?? 0) / max) * innerH : 0))
           const tops = heights.map((_, k) => PAD.t + innerH - heights.slice(0, k + 1).reduce((acc, h) => acc + h, 0))
           return (
-            <g key={d.title} onMouseEnter={() => setActive(i)} onFocus={() => setActive(i)} tabIndex={0} aria-label={`${d.title}: ${format(totals[i])}`} style={{ outline: 'none' }}>
+            <g key={d.title} role="img" onMouseEnter={() => setActive(i)} onFocus={() => setActive(i)} onBlur={() => setActive(null)} tabIndex={0} aria-label={`${d.title}: ${format(totals[i])}`} style={{ outline: 'none' }}>
               <rect x={PAD.l + slot * i} y={PAD.t} width={slot} height={innerH} fill={active === i ? 'rgba(255,255,255,0.05)' : 'transparent'} />
               {series.map((sr, k) =>
                 heights[k] > 0 ? <rect key={sr.key} x={x} y={tops[k]} width={barW} height={Math.max(heights[k], 1)} fill={sr.color} rx={2} opacity={active === null || active === i ? 1 : 0.55} /> : null,
               )}
-              {i % everyN === 0 && (
+              {(data.length - 1 - i) % everyN === 0 && (
                 <text x={x + barW / 2} y={H - 7} fontSize="11" textAnchor="middle" fill="#94a3b8">
                   {d.label}
                 </text>

@@ -21,3 +21,6 @@ traces.jsonl
 
 # GitHub panel clone
 Oryn/
+
+# local agent wallet state
+.agent-data/

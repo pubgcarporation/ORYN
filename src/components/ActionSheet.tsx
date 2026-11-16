@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { AnimatePresence, motion, useDragControls } from 'framer-motion'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { motion, useDragControls } from 'framer-motion'
 import { ExternalLink, Loader2, X, CheckCircle2, AlertCircle } from 'lucide-react'
 import { useAccount, useReadContract, useWriteContract } from 'wagmi'
 import { erc20Abi } from 'viem'
@@ -74,7 +74,7 @@ export function ActionSheet({ action, symbol, pool, user, onClose }: Props) {
     }
   }, [action, symbol, position])
 
-  const { data: preview } = useReadContract({
+  const { data: preview, isLoading: previewLoading } = useReadContract({
     address: POOL_ADDRESS,
     abi: poolAbi,
     functionName: 'previewBorrowLimit',
@@ -127,25 +127,48 @@ export function ActionSheet({ action, symbol, pool, user, onClose }: Props) {
 
   const dragControls = useDragControls()
 
-  // Lock the page behind the sheet so touch scrolling does not move it.
+  const dialogRef = useRef<HTMLElement>(null)
+  // The button that opened the sheet, read before the amount field grabs focus.
+  const [opener] = useState(() => (document.activeElement instanceof HTMLElement ? document.activeElement : null))
+
+  // Lock the page behind the sheet, move focus into it, and give focus back to the opener when it closes.
   useEffect(() => {
     const previous = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     document.body.dataset.sheet = 'open'
+    if (!dialogRef.current?.contains(document.activeElement)) dialogRef.current?.focus({ preventScroll: true })
     return () => {
       document.body.style.overflow = previous
       delete document.body.dataset.sheet
+      opener?.focus({ preventScroll: true })
     }
-  }, [])
+  }, [opener])
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !tx.busy && onClose()
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !tx.busy) return onClose()
+      if (e.key !== 'Tab' || !dialogRef.current) return
+      // Keep Tab inside the sheet so focus never lands on the page behind it.
+      const items = [...dialogRef.current.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled)')].filter((el) => el.offsetParent !== null)
+      if (items.length === 0) return
+      const first = items[0]
+      const last = items[items.length - 1]
+      if (e.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose, tx.busy])
 
   const hfAfter = preview?.[0]
   const withinLimit = preview?.[1]
+  // The wallet is asked for its health factor after the borrow. Until that answers, the button stays off.
+  const checkingLimit = action === 'borrow' && raw !== undefined && !exceeds && previewLoading
   const rate = action === 'borrow' || action === 'repay' ? reserve.borrowRateApr : reserve.supplyRateApr
 
   let cta = TITLES[action]
@@ -153,12 +176,13 @@ export function ActionSheet({ action, symbol, pool, user, onClose }: Props) {
   else if (exceeds) cta = action === 'deposit' || action === 'repay' ? 'Insufficient balance' : 'Amount too high'
   else if (needsApproval) cta = `Approve and ${TITLES[action].toLowerCase()}`
   else if (action === 'borrow' && withinLimit === false) cta = 'Exceeds borrow limit'
+  else if (checkingLimit) cta = 'Checking your borrow limit'
 
   const blocked =
-    raw === undefined || exceeds || (action === 'borrow' && withinLimit === false) || (action === 'borrow' && pool.paused)
+    raw === undefined || exceeds || checkingLimit || (action === 'borrow' && withinLimit === false) || (action === 'borrow' && pool.paused)
 
   return (
-    <AnimatePresence>
+    <>
       <motion.div
         className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
         initial={{ opacity: 0 }}
@@ -171,10 +195,13 @@ export function ActionSheet({ action, symbol, pool, user, onClose }: Props) {
           role="dialog"
           aria-modal="true"
           aria-label={`${TITLES[action]} ${symbol}`}
-          className="card safe-bottom relative max-h-[92dvh] w-full max-w-md overflow-y-auto overscroll-contain rounded-b-none p-5 pt-3 sm:rounded-3xl"
+          ref={dialogRef}
+          tabIndex={-1}
+          className="card safe-bottom relative max-h-[92dvh] outline-none w-full max-w-md overflow-y-auto overscroll-contain rounded-b-none p-5 pt-3 sm:rounded-3xl"
           style={{ background: 'var(--panel-solid)' }}
           initial={{ y: 60, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
+          exit={{ y: 60, opacity: 0 }}
           transition={{ type: 'spring', stiffness: 380, damping: 34 }}
           drag="y"
           dragControls={dragControls}
@@ -333,7 +360,7 @@ export function ActionSheet({ action, symbol, pool, user, onClose }: Props) {
           )}
         </motion.section>
       </motion.div>
-    </AnimatePresence>
+    </>
   )
 }
 

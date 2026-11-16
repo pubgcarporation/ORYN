@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { AnimatePresence } from 'framer-motion'
 import { Info } from 'lucide-react'
 import { ASSET_LIST, fmtApr, fmtAsset, fmtBps, fmtUsd8, valueUsd8, type AssetInfo } from '@/lib/pool'
 import type { PoolState, UserState } from '@/hooks/usePool'
@@ -139,7 +140,7 @@ export function MarketsPage({ pool, user }: Props) {
 
       <OracleCard pool={pool} />
 
-      {sheet && <ActionSheet action={sheet.action} symbol={sheet.symbol} pool={pool} user={user} onClose={() => setSheet(null)} />}
+      <AnimatePresence>{sheet && <ActionSheet key={`${sheet.action}-${sheet.symbol}`} action={sheet.action} symbol={sheet.symbol} pool={pool} user={user} onClose={() => setSheet(null)} />}</AnimatePresence>
     </div>
   )
 }
