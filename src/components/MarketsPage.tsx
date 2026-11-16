@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import { Info } from 'lucide-react'
-import { ASSET_LIST, fmtApr, fmtAsset, fmtBps, fmtUsd8, valueUsd8, type AssetInfo } from '@/lib/pool'
+import { ASSET_LIST, fmtApr, fmtAsset, fmtUsd8, valueUsd8, type AssetInfo } from '@/lib/pool'
 import type { PoolState, UserState } from '@/hooks/usePool'
 import { ActionSheet, type ActionKind } from '@/components/ActionSheet'
 import { BorrowSimulator } from '@/components/BorrowSimulator'
@@ -51,10 +51,9 @@ export function MarketsPage({ pool, user }: Props) {
         {ASSET_LIST.map((asset) => {
           const r = pool.reserves[asset.symbol]
           const mine = user.assets[asset.symbol]
-          const supplyCapFilled = r.supplyCap > 0n ? Number((r.totalSupplied * 10_000n) / r.supplyCap) / 100 : 0
           const util = Math.min(100, Number(r.utilization / 10n ** 14n) / 100)
           return (
-            <section key={asset.symbol} className="card card-hover p-5">
+            <section key={asset.symbol} className="card card-hover p-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <TokenBadge symbol={asset.symbol} size={36} />
@@ -69,11 +68,10 @@ export function MarketsPage({ pool, user }: Props) {
                   <div className="display num text-lg font-semibold">
                     {pool.loaded ? fmtUsd8(pool.prices[asset.symbol], asset.symbol === 'cirBTC' ? 0 : 4) : <Skeleton className="ml-auto h-6 w-16" />}
                   </div>
-                  <div className="label">Chainlink</div>
                 </div>
               </div>
 
-              <div className="mt-5 grid grid-cols-2 gap-3">
+              <div className="mt-4 grid grid-cols-2 gap-3">
                 <div className="inner p-3">
                   <div className="label">Supply APY</div>
                   <div className="display num mt-1 text-xl font-semibold" style={{ color: 'var(--success)' }}>
@@ -86,32 +84,32 @@ export function MarketsPage({ pool, user }: Props) {
                 </div>
               </div>
 
-              <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-                <Item label="Total supplied" value={`${fmtAsset(r.totalSupplied, asset.symbol)} ${asset.symbol}`} />
-                <Item label="Total borrowed" value={`${fmtAsset(r.totalBorrowed, asset.symbol)} ${asset.symbol}`} />
-                <Item label="Available" value={`${fmtAsset(r.availableLiquidity, asset.symbol)} ${asset.symbol}`} />
-                <Item label="Supply cap" value={r.supplyCap > 0n ? `${supplyCapFilled.toFixed(1)}% filled` : 'No cap'} />
-                <div className="col-span-2">
-                  <div className="mb-1 flex justify-between">
-                    <dt className="label">Utilization</dt>
-                    <dd className="num text-xs font-medium">{util.toFixed(1)}%</dd>
-                  </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+              <div className="mt-3 flex items-center justify-between gap-3 text-sm">
+                <div>
+                  <span className="label">Available </span>
+                  <span className="num font-medium">{fmtAsset(r.availableLiquidity, asset.symbol)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="label">Util.</span>
+                  <div className="h-1.5 w-16 overflow-hidden rounded-full bg-white/10">
                     <div className="h-full rounded-full transition-[width] duration-700" style={{ width: `${util}%`, background: 'var(--accent)' }} />
                   </div>
+                  <span className="num text-xs font-medium">{util.toFixed(0)}%</span>
                 </div>
-                <Item label="Max LTV" value={fmtBps(r.ltv)} />
-                <Item label="Liq. threshold" value={fmtBps(r.liquidationThreshold)} />
-              </dl>
+              </div>
 
-              {user.address && (
-                <div className="inner mt-4 divide-y divide-white/10 text-sm">
-                  <Row label="You supplied" value={`${fmtAsset(mine.supplied, asset.symbol)} ${asset.symbol}`} />
-                  <Row label="You owe" value={`${fmtAsset(mine.debt, asset.symbol)} ${asset.symbol}`} />
+              {user.address && (mine.supplied > 0n || mine.debt > 0n) && (
+                <div className="mt-3 flex justify-between text-xs" style={{ color: 'var(--muted)' }}>
+                  <span>
+                    Supplied <span className="num font-semibold" style={{ color: 'var(--ink)' }}>{fmtAsset(mine.supplied, asset.symbol)}</span>
+                  </span>
+                  <span>
+                    Owed <span className="num font-semibold" style={{ color: 'var(--ink)' }}>{fmtAsset(mine.debt, asset.symbol)}</span>
+                  </span>
                 </div>
               )}
 
-              <div className="mt-4 grid grid-cols-2 gap-2">
+              <div className="mt-3 grid grid-cols-2 gap-2">
                 <button className="btn-primary" onClick={() => setSheet({ action: 'deposit', symbol: asset.symbol })}>
                   Supply
                 </button>
@@ -141,24 +139,6 @@ export function MarketsPage({ pool, user }: Props) {
       <OracleCard pool={pool} />
 
       <AnimatePresence>{sheet && <ActionSheet key={`${sheet.action}-${sheet.symbol}`} action={sheet.action} symbol={sheet.symbol} pool={pool} user={user} onClose={() => setSheet(null)} />}</AnimatePresence>
-    </div>
-  )
-}
-
-function Item({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="label">{label}</dt>
-      <dd className="num mt-0.5 font-medium">{value}</dd>
-    </div>
-  )
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between px-4 py-2.5">
-      <span style={{ color: 'var(--muted)' }}>{label}</span>
-      <span className="num font-semibold">{value}</span>
     </div>
   )
 }
