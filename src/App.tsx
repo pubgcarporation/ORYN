@@ -54,7 +54,7 @@ function AppShell({ path }: { path: string }) {
         <Sidebar active={active} />
         <div className="bg-grid pointer-events-none absolute inset-x-0 top-0 h-[480px]" aria-hidden="true" />
         <header className="safe-top sticky top-0 z-30 border-b" style={{ borderColor: 'var(--border)', background: 'var(--panel)', backdropFilter: 'blur(16px)' }}>
-          <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-2.5 sm:py-3 md:mx-0 md:max-w-6xl md:px-6">
+          <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-2.5 sm:py-3 md:max-w-[88rem] md:px-6">
             <div className="flex items-center gap-3">
               <Link to="/" aria-label="ORYN home" className="rounded-lg md:hidden">
                 <Logo />
@@ -79,7 +79,7 @@ function AppShell({ path }: { path: string }) {
           </div>
         </header>
 
-        <main className="relative mx-auto max-w-5xl px-4 pt-8 md:mx-0 md:max-w-6xl md:px-6">
+        <main className="relative mx-auto max-w-5xl px-4 pt-8 md:max-w-[88rem] md:px-6">
           <OracleBanner pool={pool} />
           <AnimatePresence mode="wait">
             <motion.div key={active} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }}>
