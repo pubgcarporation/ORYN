@@ -3,15 +3,19 @@ import { useId } from 'react'
 export function LogoMark({ size = 26 }: { size?: number }) {
   const id = useId()
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden="true">
+    <svg width={size} height={size} viewBox="350 300 610 620" fill="none" aria-hidden="true">
       <defs>
-        <linearGradient id={id} x1="16" y1="2" x2="16" y2="30" gradientUnits="userSpaceOnUse">
+        <linearGradient id={`${id}-arch`} x1="655" y1="312" x2="655" y2="726" gradientUnits="userSpaceOnUse">
           <stop stopColor="#ffffff" />
-          <stop offset="1" stopColor="#b9a6ff" />
+          <stop offset="1" stopColor="#b8a4ff" />
+        </linearGradient>
+        <linearGradient id={`${id}-gem`} x1="560" y1="640" x2="750" y2="900" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#f3efff" />
+          <stop offset="1" stopColor="#b8a4ff" />
         </linearGradient>
       </defs>
-      <path d="M16 2.5 28 27.5 16 21 4 27.5 16 2.5Z" fill={`url(#${id})`} />
-      <path d="M16 11.5 21 22.2 16 19.4 11 22.2 16 11.5Z" fill="#0a0814" />
+      <path d="M627 322C642 308 668 308 683 322L910 555C956 602 950 680 884 726L655 472 428 726C362 680 356 602 402 555L627 322Z" fill={`url(#${id}-arch)`} />
+      <rect x="-103" y="-103" width="206" height="206" rx="15" transform="translate(655 761) rotate(45)" fill={`url(#${id}-gem)`} />
     </svg>
   )
 }
