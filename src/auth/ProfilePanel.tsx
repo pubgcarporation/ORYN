@@ -21,7 +21,7 @@ interface Props {
   onClose: () => void
 }
 
-/** Full-height account drawer that slides in from the left. */
+/** Full-height account drawer that slides in from the right, built from cards. */
 export function ProfilePanel({ address, open, onClose }: Props) {
   const auth = useAuth()
   const path = usePath()
@@ -99,11 +99,11 @@ export function ProfilePanel({ address, open, onClose }: Props) {
             role="dialog"
             aria-modal="true"
             aria-label="Account"
-            className="absolute inset-y-0 left-0 flex w-[min(20rem,88vw)] flex-col border-r"
-            style={{ background: 'var(--panel-solid)', borderColor: 'var(--border)', boxShadow: '24px 0 70px -24px rgba(0,0,0,0.85)' }}
-            initial={{ x: '-100%' }}
+            className="absolute inset-y-0 right-0 flex w-[min(21rem,90vw)] flex-col rounded-l-3xl border-l"
+            style={{ background: 'var(--panel-solid)', borderColor: 'var(--border)', boxShadow: '-24px 0 70px -24px rgba(0,0,0,0.85)' }}
+            initial={{ x: '100%' }}
             animate={{ x: 0 }}
-            exit={{ x: '-100%' }}
+            exit={{ x: '100%' }}
             transition={{ type: 'tween', ease: [0.22, 1, 0.36, 1], duration: 0.28 }}
           >
             <header className="flex shrink-0 items-center gap-3 px-4 pb-3 pt-[max(1rem,env(safe-area-inset-top))]">
@@ -121,10 +121,10 @@ export function ProfilePanel({ address, open, onClose }: Props) {
               </button>
             </header>
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
-              <div className="rounded-2xl border p-3" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
-                <div className="flex items-center gap-3">
-                  <span className="flex size-10 shrink-0 items-center justify-center rounded-full text-sm font-bold" style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}>
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
+              <Card>
+                <div className="flex items-center gap-3 p-1">
+                  <span className="flex size-11 shrink-0 items-center justify-center rounded-full text-sm font-bold" style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}>
                     {initials}
                   </span>
                   <div className="min-w-0 flex-1">
@@ -134,62 +134,68 @@ export function ProfilePanel({ address, open, onClose }: Props) {
                       {copied ? <Check className="size-3" style={{ color: 'var(--success)' }} /> : <Copy className="size-3" />}
                     </button>
                   </div>
+                  <a
+                    href={buildAddressExplorerUrl(ARC_ID, address)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex size-9 shrink-0 items-center justify-center rounded-xl hover:bg-white/5"
+                    style={{ color: 'var(--muted)' }}
+                    aria-label="View on explorer"
+                  >
+                    <ExternalLink className="size-4" />
+                  </a>
                 </div>
-                <ul className="mt-3 space-y-1 border-t pt-2" style={{ borderColor: 'var(--border)' }}>
+              </Card>
+
+              <Card label="Balances">
+                <ul>
                   {ASSET_LIST.map((a, i) => (
-                    <li key={a.symbol} className="flex items-center justify-between gap-3 py-1 text-sm">
-                      <span className="flex items-center gap-2">
-                        <TokenBadge symbol={a.symbol} size={20} />
+                    <li key={a.symbol} className="flex min-h-11 items-center justify-between gap-3 px-2 text-sm">
+                      <span className="flex items-center gap-2.5">
+                        <TokenBadge symbol={a.symbol} size={22} />
                         {a.symbol}
                       </span>
                       <span className="num font-semibold">{fmtAsset(balanceOf(i), a.symbol)}</span>
                     </li>
                   ))}
                 </ul>
-              </div>
+              </Card>
 
-              <nav aria-label="Pages" className="mt-4 space-y-1">
-                {TABS.map(({ id, label, icon }) => (
-                  <DrawerLink key={id} to={`/app/${id}`} icon={icon} active={active === id} onClick={onClose}>
-                    {label}
+              <Card label="Menu">
+                <nav aria-label="Pages" className="space-y-0.5">
+                  {TABS.map(({ id, label, icon }) => (
+                    <DrawerLink key={id} to={`/app/${id}`} icon={icon} active={active === id} onClick={onClose}>
+                      {label}
+                    </DrawerLink>
+                  ))}
+                </nav>
+              </Card>
+
+              <Card label="Explore">
+                <div className="space-y-0.5">
+                  <DrawerLink to="/app/leaderboard" icon={Trophy} active={active === 'leaderboard'} onClick={onClose}>
+                    Leaderboard
                   </DrawerLink>
-                ))}
-              </nav>
+                  <DrawerLink to="/app/analytics" icon={BarChart3} active={active === 'analytics'} onClick={onClose}>
+                    Analytics
+                  </DrawerLink>
+                  <DrawerAnchor href={FAUCET_URL} icon={Droplets}>
+                    Get test USDC
+                  </DrawerAnchor>
+                </div>
+              </Card>
 
-              <SectionLabel>Account</SectionLabel>
-              <div className="space-y-1">
-                <DrawerLink to="/app/leaderboard" icon={Trophy} active={active === 'leaderboard'} onClick={onClose}>
-                  Leaderboard
-                </DrawerLink>
-                <DrawerLink to="/app/analytics" icon={BarChart3} active={active === 'analytics'} onClick={onClose}>
-                  Analytics
-                </DrawerLink>
-              </div>
-
-              <SectionLabel>Tools</SectionLabel>
-              <div className="space-y-1">
-                <DrawerAnchor href={FAUCET_URL} icon={Droplets}>
-                  Get test USDC
-                </DrawerAnchor>
-                <DrawerAnchor href={buildAddressExplorerUrl(ARC_ID, address)} icon={ExternalLink}>
-                  View on explorer
-                </DrawerAnchor>
-                <button
-                  className="flex min-h-12 w-full items-center gap-3 rounded-xl px-2 text-sm font-semibold transition-colors hover:bg-white/5"
-                  style={{ color: 'var(--danger)' }}
-                  onClick={() => {
-                    onClose()
-                    auth.logout()
-                  }}
-                >
-                  <IconTile>
-                    <LogOut className="size-[18px]" />
-                  </IconTile>
-                  Sign out
-                </button>
-              </div>
+              <button
+                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border text-sm font-semibold transition-colors hover:bg-white/5"
+                style={{ color: 'var(--danger)', borderColor: 'rgba(255,122,138,0.3)', background: 'rgba(255,122,138,0.06)' }}
+                onClick={() => {
+                  onClose()
+                  auth.logout()
+                }}
+              >
+                <LogOut className="size-4" /> Sign out
+              </button>
             </div>
-
           </motion.aside>
         </div>
       )}
@@ -198,11 +204,16 @@ export function ProfilePanel({ address, open, onClose }: Props) {
   )
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+function Card({ label, children }: { label?: string; children: React.ReactNode }) {
   return (
-    <div className="label mb-1.5 mt-5 px-2" style={{ color: 'var(--subtle)' }}>
+    <section className="rounded-2xl border p-2" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+      {label && (
+        <div className="label px-2 pb-1 pt-1.5" style={{ color: 'var(--subtle)' }}>
+          {label}
+        </div>
+      )}
       {children}
-    </div>
+    </section>
   )
 }
 
