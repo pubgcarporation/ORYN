@@ -31,7 +31,7 @@ export function PositionsPage({ pool, user }: { pool: PoolState; user: UserState
   if (!user.address) {
     return (
       <div>
-        <PageTitle title="Your positions">Every deposit and loan you hold in the market, with live health.</PageTitle>
+        <PageTitle title="Your positions" />
         <div className="card flex flex-col items-center gap-4 p-10 text-center">
           <ShieldCheck className="size-8" style={{ color: 'var(--accent)' }} aria-hidden="true" />
           <div>
@@ -63,7 +63,7 @@ export function PositionsPage({ pool, user }: { pool: PoolState; user: UserState
 
   return (
     <div>
-      <PageTitle title="Your positions">Every deposit and loan you hold in the market, with live health.</PageTitle>
+      <PageTitle title="Your positions" />
 
       <section className="card mb-6 p-5 sm:p-6" aria-label="Account health">
         <div className="flex flex-wrap items-start justify-between gap-4">

@@ -4,6 +4,7 @@ import { usePool, useUser } from '@/hooks/usePool'
 import { TABS, isLegacyPath, tabFromPath, type Tab } from '@/lib/nav'
 import { Sidebar } from '@/components/Sidebar'
 import { Link, navigate, usePath } from '@/lib/router'
+import { Droplets } from 'lucide-react'
 import { ConnectButton } from '@/auth/ConnectButton'
 import { Logo } from '@/components/Logo'
 import { MarketsPage } from '@/components/MarketsPage'
@@ -62,7 +63,19 @@ function AppShell({ path }: { path: string }) {
                 Arc Testnet
               </span>
             </div>
-            <ConnectButton />
+            <div className="flex items-center gap-2">
+              <a
+                href="https://faucet.circle.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-ghost !min-h-11 !min-w-11 !px-0"
+                aria-label="Get test tokens from the Circle faucet"
+                title="Circle faucet"
+              >
+                <Droplets className="size-5" aria-hidden="true" />
+              </a>
+              <ConnectButton />
+            </div>
           </div>
         </header>
 

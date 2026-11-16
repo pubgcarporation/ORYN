@@ -25,7 +25,7 @@ export function MarketsPage({ pool, user }: Props) {
 
   return (
     <div>
-      <PageTitle title="Markets">Supply to earn, borrow against what you supplied, and repay or withdraw any time. Keep your health factor above 1.</PageTitle>
+      <PageTitle title="Markets" />
 
       {user.address && user.loaded && wallet.USDC.walletBalance === 0n && wallet.EURC.walletBalance === 0n && wallet.cirBTC.walletBalance === 0n && (
         <FundWallet address={user.address} />
