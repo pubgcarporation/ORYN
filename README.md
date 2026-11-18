@@ -49,6 +49,8 @@ bun run check            # lint and typecheck
 bun run contracts:build  # compile the contract
 bun run contracts:test   # run contract tests (needs forge-std: git clone https://github.com/foundry-rs/forge-std lib/forge-std)
 bun run relay:price      # copy the latest Chainlink prices onto the testnet feeds (add -- --watch to keep it running)
+bun run bot:deploy       # deploy the Cloudflare liquidation bot (see cloudflare/README.md)
+bun run bot:dev          # run the bot locally with Wrangler
 ```
 
 ### Environment variables
@@ -58,6 +60,7 @@ bun run relay:price      # copy the latest Chainlink prices onto the testnet fee
 - `VITE_CIRBTC_ADDRESS`: address of the cirBTC token on Arc Testnet.
 - `VITE_EURC_PRICE_FEED_ADDRESS`, `VITE_USDC_PRICE_FEED_ADDRESS`, `VITE_BTC_PRICE_FEED_ADDRESS`: the testnet price feeds the market reads. Only used by the relay script.
 - `RELAYER_PRIVATE_KEY`: private key of the account allowed to update those feeds. Only used by the relay script. Keep it secret and never commit it.
+- `VITE_BOT_URL`: optional. URL of the Cloudflare liquidation bot. Shows its status on Analytics > Risk.
 - `VITE_PRIVY_APP_ID`: your Privy app ID. Required for sign-in. Enable Google as a login method in the Privy dashboard and add your app's origin to its allowed origins.
 - `OPENAI_API_KEY` or `ANTHROPIC_API_KEY`: optional. Turns on free-form requests in the Assistant. Server only, keep it secret and never prefix it with `VITE_`.
 - `CIRCLE_API_KEY` and `CIRCLE_ENTITY_SECRET`: required for the agent wallet. Server only. Back up the entity secret and its recovery file, because losing both means losing access to every wallet it controls.

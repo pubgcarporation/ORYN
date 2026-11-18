@@ -9,7 +9,7 @@ const usdcFact = getUsdc(ARC_ID)
 if (!usdcFact) throw new Error('USDC is not registered for Arc Testnet')
 
 // Public deployment addresses on Arc Testnet. The env vars let a redeploy point at another market.
-export const POOL_ADDRESS = ((import.meta.env.VITE_LENDING_POOL_ADDRESS as string | undefined) || '0x84b8d4ba692aa57250c0bd99d8080529fd81825e') as Address
+export const POOL_ADDRESS = ((import.meta.env.VITE_LENDING_POOL_ADDRESS as string | undefined) || '0xa60dd309bbd9ca90feed5deab2b27cb8d5cf2120') as Address
 export const CIRBTC_ADDRESS = ((import.meta.env.VITE_CIRBTC_ADDRESS as string | undefined) || '0xf0C4a4CE82A5746AbAAd9425360Ab04fbBA432BF') as Address
 export const EURC_ADDRESS = ((import.meta.env.VITE_EURC_ADDRESS as string | undefined) || '0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a') as Address
 
@@ -41,6 +41,7 @@ export const poolAbi = parseAbi([
   'function borrow(address asset, uint256 amount)',
   'function repay(address asset, uint256 amount)',
   'function getReserveData(address asset) view returns (uint256 totalSupplied, uint256 totalBorrowed, uint256 availableLiquidity, uint256 utilization, uint256 supplyRateApr, uint256 borrowRateApr, uint256 supplyCap, uint256 borrowCap, uint256 ltv, uint256 liquidationThreshold, uint256 liquidationBonus, uint256 price8)',
+  'function liquidationCloseFactor(address borrower) view returns (uint256)',
   'function getUserAccount(address user) view returns (uint256 collateralValueUsd8, uint256 debtValueUsd8, uint256 borrowCapacityUsd8, uint256 liquidationValueUsd8, uint256 healthFactorWad)',
   'function supplyBalanceOf(address asset, address user) view returns (uint256)',
   'function debtBalanceOf(address asset, address user) view returns (uint256)',

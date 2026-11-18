@@ -10,6 +10,8 @@
     "compass:deploy": "bun run ./scripts/compass-deploy.ts",
     "fetch:abi": "bun run ./scripts/fetch-abi.ts",
     "relay:price": "bun run ./scripts/relay-price.ts",
+    "bot:dev": "bunx wrangler dev --config cloudflare/wrangler.toml --test-scheduled",
+    "bot:deploy": "bunx wrangler deploy --config cloudflare/wrangler.toml",
     "lint": "oxlint --type-aware src scripts --fix; s=$?; oxlint --fix .; exit $((s>0?s:$?))",
     "typecheck": "tsc --noEmit",
     "check": "bash scripts/check.sh",

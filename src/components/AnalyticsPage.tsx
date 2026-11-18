@@ -7,6 +7,7 @@ import { ARC_ID, ASSET_LIST, POOL_ADDRESS, fmtApr, fmtHealth, poolAbi, valueUsd8
 import { compact, dailySeries, money, short, totals } from '@/lib/stats'
 import { usePoolEvents } from '@/hooks/usePoolEvents'
 import type { PoolState } from '@/hooks/usePool'
+import { BotStatus } from '@/components/BotStatus'
 import { ShareBar, StackedBars, type BarDatum } from '@/components/Charts'
 import { Skeleton, TokenBadge } from '@/components/ui'
 
@@ -182,7 +183,12 @@ export function AnalyticsPage({ pool }: { pool: PoolState }) {
             </div>
           ))}
 
-        {view === 'risk' && <RiskMonitor events={data} loaded={pool.loaded} />}
+        {view === 'risk' && (
+          <>
+            <BotStatus />
+            <RiskMonitor events={data} loaded={pool.loaded} />
+          </>
+        )}
       </div>
 
       <p className="mt-6 text-xs" style={{ color: 'var(--subtle)' }}>

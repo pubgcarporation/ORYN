@@ -1,0 +1,35 @@
+name = "oryn-liquidation-bot"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Runs every minute. Each run does several short checks (see TICKS_PER_RUN).
+[triggers]
+crons = ["* * * * *"]
+
+# Create the store once with:  bunx wrangler kv namespace create STATE
+# then paste the id it prints here.
+[[kv_namespaces]]
+binding = "STATE"
+id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+
+[vars]
+POOL_ADDRESS = "0xa60dd309bbd9ca90feed5deab2b27cb8d5cf2120"
+POOL_DEPLOY_BLOCK = "72816469"
+MIRROR_EURC = "0xc7f9471f68b473058260ec35d11d3914e1e5316f"
+MIRROR_USDC = "0x9079cfc19553b44d724c92e4aa8b9c41d2f12c6b"
+MIRROR_BTC = "0x2ccf7c5c2681fee5ebc309827b9a1d481218bfd3"
+EXPLORER_BASE = "https://explorer.testnet.arc.io"
+TICKS_PER_RUN = "3"
+TICK_MS = "15000"
+MIN_REPAY_USD = "0.5"
+MAX_LIQUIDATIONS_PER_TICK = "3"
+# "1" = take the borrower's deposit shares instead of the underlying token (Aave receiveAToken style).
+RECEIVE_SUPPLY_SHARES = "0"
+# Start in dry-run mode. Set to "0" once you have checked the log and funded the liquidator wallet.
+DRY_RUN = "1"
+
+# Secrets are NOT stored here. Set them with:
+#   bunx wrangler secret put RELAYER_PRIVATE_KEY     (the updater of the three mirror feeds)
+#   bunx wrangler secret put LIQUIDATOR_PRIVATE_KEY  (a separate wallet that holds tokens to repay debt)
+#   bunx wrangler secret put ADMIN_TOKEN             (optional, for POST /run)

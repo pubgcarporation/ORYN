@@ -836,14 +836,15 @@ contract OrynPoolCirBtcTest is OrynPoolTestBase {
         _deposit(bob, cirbtc, 1e7); // 0.1 BTC, $10,000 at 100k
         uint256 debt = pool.maxBorrowable(address(eurc), bob); // ~ $7,000 of EURC
         _borrow(bob, eurc, debt);
-        _setBtcPrice(60_000e8); // collateral $6,000, liq value $4,500 < ~$7,000 debt
+        // collateral $9,000, liq value $6,750 < ~$7,000 debt; HF ~0.96 keeps the 50% close factor
+        _setBtcPrice(90_000e8);
         vm.recordLogs();
         vm.prank(liq);
         pool.liquidate(bob, address(eurc), address(cirbtc), type(uint256).max);
         (uint256 repaid, uint256 seized,) = _lastLiquidation();
         assertEq(repaid, debt / 2); // close factor, debt has no interest at same timestamp
-        // single floor: floor(repaid * PRICE * 1e8 * 10,800 / (60,000e8 * 1e6 * 10,000))
-        assertEq(seized, Math.mulDiv(repaid * PRICE * 1e8, 10_800, 60_000e8 * 1e6 * 10_000));
+        // single floor: floor(repaid * PRICE * 1e8 * 10,800 / (90,000e8 * 1e6 * 10,000))
+        assertEq(seized, Math.mulDiv(repaid * PRICE * 1e8, 10_800, 90_000e8 * 1e6 * 10_000));
         assertEq(pool.supplyBalanceOf(address(cirbtc), bob), 1e7 - seized);
     }
 
@@ -970,6 +971,7 @@ contract OrynPoolCirBtcTest is OrynPoolTestBase {
         uint256 colBefore = pool.supplyBalanceOf(colAsset, bob);
         uint256 liqDebtBal = MockERC20(debtAsset).balanceOf(liq);
         uint256 liqColBal = MockERC20(colAsset).balanceOf(liq);
+        uint256 closeFactor = pool.liquidationCloseFactor(bob); // 50%, or 100% when health < 0.95
         vm.recordLogs();
         vm.prank(liq);
         pool.liquidate(bob, debtAsset, colAsset, req);
@@ -977,7 +979,7 @@ contract OrynPoolCirBtcTest is OrynPoolTestBase {
 
         assertGt(repaid, 0);
         assertLe(repaid, req);
-        assertLe(repaid, Math.mulDiv(debtBefore, 5_000, 10_000)); // close factor
+        assertLe(repaid, Math.mulDiv(debtBefore, closeFactor, 10_000)); // close factor
         assertEq(seized, _expSeized(debtAsset, colAsset, repaid)); // exact cross-decimal math, 8% / 5% bonus
         assertLe(seized, colBefore); // never more than the borrower holds
         assertEq(pool.debtBalanceOf(debtAsset, bob), debtBefore - repaid);
@@ -1037,11 +1039,12 @@ contract OrynPoolCirBtcTest is OrynPoolTestBase {
         assertLt(pool.getAccountData(bob).healthFactorWad, 1e18);
         uint256 debtBefore = debt;
         uint256 colBefore = pool.supplyBalanceOf(address(cirbtc), bob);
+        uint256 closeFactor = pool.liquidationCloseFactor(bob); // 50%, or 100% when health < 0.95
         vm.recordLogs();
         vm.prank(liq);
         pool.liquidate(bob, address(usdc), address(cirbtc), debt);
         (uint256 repaid, uint256 seized,) = _lastLiquidation();
-        assertLe(repaid, Math.mulDiv(debtBefore, 5_000, 10_000));
+        assertLe(repaid, Math.mulDiv(debtBefore, closeFactor, 10_000));
         assertLe(seized, colBefore);
         assertEq(seized, _expSeized(address(usdc), address(cirbtc), repaid));
         _assertAllSolvent();

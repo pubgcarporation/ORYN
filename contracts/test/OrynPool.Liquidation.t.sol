@@ -16,6 +16,15 @@ contract OrynPoolLiquidationTest is OrynPoolTestBase {
         _setPrice(P2);
     }
 
+    /// @dev EURC at 1.25: bob's 700 EURC debt is ~875 USD vs 850 liquidation value (HF ~0.97), i.e.
+    ///      liquidatable but not below 0.95, so the 50% close factor applies (P2 gives HF ~0.91 -> 100%).
+    uint256 internal constant P_HALF = 125_000_000;
+
+    function _raisePriceToHalfCloseZone() internal {
+        skip(1 days);
+        _setPrice(P_HALF);
+    }
+
     function _lastLiquidation() internal returns (uint256 repaid, uint256 seized, bool paid) {
         Vm.Log[] memory logs = vm.getRecordedLogs();
         bytes32 sig = OrynPool.Liquidation.selector;
@@ -46,7 +55,7 @@ contract OrynPoolLiquidationTest is OrynPoolTestBase {
 
     function test_Liquidate_CloseFactor50_Bonus5_UnderlyingPayout() public {
         _bobPosition(700 * M);
-        _raisePriceTwice();
+        _raisePriceToHalfCloseZone();
 
         uint256 debtBefore = pool.debtBalanceOf(address(eurc), bob);
         uint256 supplyBefore = pool.supplyBalanceOf(address(usdc), bob);
@@ -65,7 +74,7 @@ contract OrynPoolLiquidationTest is OrynPoolTestBase {
         assertApproxEqAbs(pool.debtBalanceOf(address(eurc), bob), debtBefore - repaid, 1);
 
         // seized = floor(repaid * price(EURC) * 10,500 / (price(USDC) * 10,000)), single floor rounding
-        uint256 expected = _seizeFloor(repaid, P2, 1e8, 1e6, 1e6, 500);
+        uint256 expected = _seizeFloor(repaid, P_HALF, 1e8, 1e6, 1e6, 500);
         assertEq(seized, expected);
         assertTrue(paid);
         assertEq(usdc.balanceOf(liq) - liqUsdc, seized); // paid in underlying USDC
@@ -73,7 +82,7 @@ contract OrynPoolLiquidationTest is OrynPoolTestBase {
         assertApproxEqAbs(supplyBefore - pool.supplyBalanceOf(address(usdc), bob), seized, 1);
 
         // 5% bonus: seized USD value / repaid USD value == 1.05
-        uint256 repaidUsd = repaid * P2 / 1e6;
+        uint256 repaidUsd = repaid * P_HALF / 1e6;
         uint256 seizedUsd = seized * 1e8 / 1e6;
         assertApproxEqRel(seizedUsd, repaidUsd * 105 / 100, 1e12);
     }
@@ -102,9 +111,11 @@ contract OrynPoolLiquidationTest is OrynPoolTestBase {
 
     function test_Liquidate_SecondCallRepaysHalfOfRemainingDebt() public {
         _bobPosition(700 * M);
-        _raisePriceTwice();
+        _raisePriceToHalfCloseZone();
+        // A full 50% first repay would make bob healthy again at HF >= 0.95 (a 50% close can only keep an
+        // account liquidatable below HF ~0.946), so the first call repays a small slice.
         vm.prank(liq);
-        pool.liquidate(bob, address(eurc), address(usdc), 700 * M);
+        pool.liquidate(bob, address(eurc), address(usdc), 10 * M);
         uint256 debtMid = pool.debtBalanceOf(address(eurc), bob);
 
         vm.recordLogs();

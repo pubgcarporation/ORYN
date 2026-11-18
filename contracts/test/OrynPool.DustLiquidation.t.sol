@@ -221,7 +221,8 @@ contract OrynPoolDustLiquidationTest is OrynPoolTestBase {
     // ================================================================ (3) forward / inverse consistency
     function _checkInverse(address d, address c) internal returns (uint256 m) {
         uint256 colBefore = pool.supplyBalanceOf(c, bob);
-        uint256 closeLimit = Math.mulDiv(pool.debtBalanceOf(d, bob), 5_000, BPS_);
+        // dynamic close factor: 50%, or 100% when health < 0.95
+        uint256 closeLimit = Math.mulDiv(pool.debtBalanceOf(d, bob), pool.liquidationCloseFactor(bob), BPS_);
         uint256 snap = vm.snapshotState();
         uint256 s;
         (m, s,) = _liquidate(d, c, type(uint256).max); // applied == quote.maximumRepay (index is 1e18)
@@ -269,7 +270,8 @@ contract OrynPoolDustLiquidationTest is OrynPoolTestBase {
         uint8 flags, uint256 amt, uint256 bonus, uint256 pBtc, uint256 pOther, uint256 req
     ) public {
         (address d, address c) = _fuzzBuild(flags, amt, bonus, pBtc, pOther);
-        uint256 closeLimit = Math.mulDiv(pool.debtBalanceOf(d, bob), 5_000, BPS_);
+        // dynamic close factor: 50%, or 100% when health < 0.95
+        uint256 closeLimit = Math.mulDiv(pool.debtBalanceOf(d, bob), pool.liquidationCloseFactor(bob), BPS_);
         // half the runs are dust-sized requests
         req = (req & 1) == 0 ? bound(req, 1, Math.min(5_000, closeLimit)) : bound(req, 1, closeLimit);
         uint256 colBefore = pool.supplyBalanceOf(c, bob);
@@ -277,7 +279,7 @@ contract OrynPoolDustLiquidationTest is OrynPoolTestBase {
 
         vm.recordLogs();
         vm.prank(liq);
-        (bool ok, bytes memory ret) = address(pool).call(abi.encodeCall(pool.liquidate, (bob, d, c, req)));
+        (bool ok, bytes memory ret) = address(pool).call(abi.encodeWithSelector(bytes4(keccak256("liquidate(address,address,address,uint256)")), bob, d, c, req));
         if (!ok) {
             // the only acceptable failure is ZeroSeizure, and only when the floor formula really gives zero
             assertEq(bytes4(ret), OrynPool.ZeroSeizure.selector);
