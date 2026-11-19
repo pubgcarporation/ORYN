@@ -13,22 +13,12 @@ export function LandingHero({ pool }: { pool: PoolState }) {
       <div className="glow -right-24 top-40 size-80 bg-[#b9a6ff]/15" aria-hidden="true" />
 
       <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-4 pb-14 pt-10 sm:pb-20 sm:pt-16 lg:grid-cols-[1.1fr_0.9fr] lg:pt-24">
-        <div>
-          <motion.span
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold"
-            style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--ink-2)' }}
-          >
-            <span className="size-1.5 rounded-full" style={{ background: 'var(--success)' }} />
-            Live on Arc Testnet
-          </motion.span>
-
+        <div className="text-center">
           <motion.h1
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 }}
-            className="display text-gradient mt-5 text-balance text-4xl font-semibold leading-[1.05] min-[400px]:text-5xl sm:text-6xl lg:text-7xl"
+            className="display text-gradient text-balance text-4xl font-semibold leading-[1.05] min-[400px]:text-5xl sm:text-6xl lg:text-7xl"
           >
             Onchain credit that settles in a blink.
           </motion.h1>
@@ -37,7 +27,7 @@ export function LandingHero({ pool }: { pool: PoolState }) {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.12 }}
-            className="mt-5 max-w-xl text-pretty text-base sm:mt-6 sm:text-lg"
+            className="mx-auto mt-5 max-w-xl text-pretty text-base sm:mt-6 sm:text-lg"
             style={{ color: 'var(--muted)' }}
           >
             Supply USDC, EURC and cirBTC to earn, borrow against your deposits, swap and bridge, all on Arc. Network fees are paid in USDC, so there is nothing else to hold.
@@ -47,7 +37,7 @@ export function LandingHero({ pool }: { pool: PoolState }) {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="mt-7 grid gap-3 sm:mt-8 sm:flex sm:flex-wrap sm:items-center"
+            className="mt-7 grid gap-3 sm:mt-8 sm:flex sm:flex-wrap sm:items-center sm:justify-center"
           >
             <Link to="/app/markets" className="btn-primary !min-h-12 !px-6 !text-base">
               Launch app <ArrowRight className="size-4" />

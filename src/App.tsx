@@ -4,6 +4,7 @@ import { usePool, useUser } from '@/hooks/usePool'
 import { TABS, isLegacyPath, tabFromPath, type Tab } from '@/lib/nav'
 import { Sidebar } from '@/components/Sidebar'
 import { Link, navigate, usePath } from '@/lib/router'
+import { Droplets } from 'lucide-react'
 import { ConnectButton } from '@/auth/ConnectButton'
 import { Logo } from '@/components/Logo'
 import { MarketsPage } from '@/components/MarketsPage'
@@ -53,7 +54,7 @@ function AppShell({ path }: { path: string }) {
         <Sidebar active={active} />
         <div className="bg-grid pointer-events-none absolute inset-x-0 top-0 h-[480px]" aria-hidden="true" />
         <header className="safe-top sticky top-0 z-30 border-b" style={{ borderColor: 'var(--border)', background: 'var(--panel)', backdropFilter: 'blur(16px)' }}>
-          <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-2.5 sm:py-3">
+          <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-2.5 sm:py-3 md:max-w-[88rem] md:px-6">
             <div className="flex items-center gap-3">
               <Link to="/" aria-label="ORYN home" className="rounded-lg md:hidden">
                 <Logo />
@@ -62,11 +63,23 @@ function AppShell({ path }: { path: string }) {
                 Arc Testnet
               </span>
             </div>
-            <ConnectButton />
+            <div className="flex items-center gap-2">
+              <a
+                href="https://faucet.circle.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-ghost !min-h-11 !min-w-11 !px-0"
+                aria-label="Get test tokens from the Circle faucet"
+                title="Circle faucet"
+              >
+                <Droplets className="size-5" aria-hidden="true" />
+              </a>
+              <ConnectButton />
+            </div>
           </div>
         </header>
 
-        <main className="relative mx-auto max-w-5xl px-4 pt-8">
+        <main className="relative mx-auto max-w-5xl px-4 pt-8 md:max-w-[88rem] md:px-6">
           <OracleBanner pool={pool} />
           <AnimatePresence mode="wait">
             <motion.div key={active} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }}>

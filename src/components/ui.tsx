@@ -24,13 +24,15 @@ export function Stat({ label, value, sub }: { label: string; value: string; sub?
   )
 }
 
-export function PageTitle({ title, children }: { title: string; children: React.ReactNode }) {
+export function PageTitle({ title, children }: { title: string; children?: React.ReactNode }) {
   return (
     <div className="mb-6">
       <h1 className="display text-balance text-3xl font-semibold sm:text-4xl">{title}</h1>
-      <p className="mt-2 max-w-xl text-pretty text-sm" style={{ color: 'var(--muted)' }}>
-        {children}
-      </p>
+      {children && (
+        <p className="mt-2 max-w-xl text-pretty text-sm" style={{ color: 'var(--muted)' }}>
+          {children}
+        </p>
+      )}
     </div>
   )
 }
