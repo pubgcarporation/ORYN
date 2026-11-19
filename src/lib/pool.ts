@@ -9,7 +9,7 @@ const usdcFact = getUsdc(ARC_ID)
 if (!usdcFact) throw new Error('USDC is not registered for Arc Testnet')
 
 // Public deployment addresses on Arc Testnet. The env vars let a redeploy point at another market.
-export const POOL_ADDRESS = ((import.meta.env.VITE_LENDING_POOL_ADDRESS as string | undefined) || '0xa60dd309bbd9ca90feed5deab2b27cb8d5cf2120') as Address
+export const POOL_ADDRESS = ((import.meta.env.VITE_LENDING_POOL_ADDRESS as string | undefined) || '0x7123a2846d167e42489dc4496b3a3e6081117052') as Address
 export const CIRBTC_ADDRESS = ((import.meta.env.VITE_CIRBTC_ADDRESS as string | undefined) || '0xf0C4a4CE82A5746AbAAd9425360Ab04fbBA432BF') as Address
 export const EURC_ADDRESS = ((import.meta.env.VITE_EURC_ADDRESS as string | undefined) || '0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a') as Address
 

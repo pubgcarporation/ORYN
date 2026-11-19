@@ -1,13 +1,20 @@
 {
-  "contractAddress": "0xa60dd309bbd9ca90feed5deab2b27cb8d5cf2120",
+  "contractAddress": "0x7123a2846d167e42489dc4496b3a3e6081117052",
   "network": "ARC-TESTNET",
   "deployerWalletId": "3c2464b2-8369-52e2-a782-800bbeca5396",
   "contract_code_path": "/home/user/app/contracts/OrynPool.sol",
   "contract_compiled_code_path": "/home/user/app/contracts/out/OrynPool.sol/OrynPool.json",
   "contract_network_and_links": {
-    "Arc Testnet": "https://explorer.testnet.arc.io/address/0xa60dd309bbd9ca90feed5deab2b27cb8d5cf2120"
+    "Arc Testnet": "https://explorer.testnet.arc.io/address/0x7123a2846d167e42489dc4496b3a3e6081117052"
   },
   "contract_deployments": [
+    {
+      "chain": "Arc Testnet",
+      "address": "0x7123a2846d167e42489dc4496b3a3e6081117052",
+      "explorerUrl": "https://explorer.testnet.arc.io/address/0x7123a2846d167e42489dc4496b3a3e6081117052",
+      "txHash": "0x9aa47cbd979a20230a983b75abd83ef6d3da786c86b5cd5d549f0aff67e40790",
+      "deployedAt": "2026-11-19T05:40:21.814Z"
+    },
     {
       "chain": "Arc Testnet",
       "address": "0xa60dd309bbd9ca90feed5deab2b27cb8d5cf2120",
