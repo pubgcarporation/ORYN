@@ -1,7 +1,7 @@
 import { accountFrom, errText, makeClients, sleep } from './chain'
 import { scanAndLiquidate } from './liquidator'
 import { relayPrices } from './relay'
-import { acquireLock, addActions, getActions, getCounter, getStatus, setCounter, setStatus } from './state'
+import { acquireLock, releaseLock, addActions, getActions, getCounter, getStatus, setCounter, setStatus } from './state'
 import type { Action, Env, ExecutionContext, ScheduledController, Status } from './types'
 
 /**
@@ -10,7 +10,15 @@ import type { Action, Env, ExecutionContext, ScheduledController, Status } from 
  * testnet feeds, then look for loans below the liquidation line and ask the pool to liquidate them.
  */
 export async function run(env: Env): Promise<Status | null> {
-  if (!(await acquireLock(env))) return getStatus(env)
+  if (!acquireLock()) return getStatus(env)
+  try {
+    return await runChecks(env)
+  } finally {
+    releaseLock()
+  }
+}
+
+async function runChecks(env: Env): Promise<Status | null> {
   const started = Date.now()
   const ticks = Math.max(1, Math.min(6, Number(env.TICKS_PER_RUN ?? '3')))
   const tickMs = Math.max(2000, Number(env.TICK_MS ?? '15000'))

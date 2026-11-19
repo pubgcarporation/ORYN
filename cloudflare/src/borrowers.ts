@@ -46,13 +46,13 @@ export async function discoverBorrowers(env: Env, c: Clients): Promise<{ state: 
     error = `could not read borrow events: ${errText(e)}`
   }
   const next: BorrowerState = { cursor, addresses: [...known].slice(-MAX_TRACKED) }
-  await setBorrowers(env, next)
+  await setBorrowers(env, next, state)
   return { state: next, error }
 }
 
 /** Drops wallets with no debt. They are added again the next time they borrow. */
 export async function pruneBorrowers(env: Env, state: BorrowerState, keep: string[]): Promise<BorrowerState> {
   const next = { cursor: state.cursor, addresses: keep }
-  await setBorrowers(env, next)
+  await setBorrowers(env, next, state)
   return next
 }
