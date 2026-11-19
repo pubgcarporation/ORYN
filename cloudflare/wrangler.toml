@@ -3,6 +3,9 @@ main = "src/index.ts"
 compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_compat"]
 
+# Keep variables and secrets set in the Cloudflare dashboard (the private keys) when this config is deployed.
+keep_vars = true
+
 # Runs every minute. Each run does several short checks (see TICKS_PER_RUN).
 [triggers]
 crons = ["* * * * *"]

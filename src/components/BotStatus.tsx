@@ -6,7 +6,9 @@ import { ARC_ID } from '@/lib/pool'
 import { Skeleton } from '@/components/ui'
 
 /** Where the Cloudflare liquidation bot answers. Optional: the card is hidden when it is not set. */
-const BOT_URL = ((import.meta.env.VITE_BOT_URL as string | undefined) ?? '').replace(/\/$/, '')
+const RAW_BOT_URL = ((import.meta.env.VITE_BOT_URL as string | undefined) ?? '').trim().replace(/\/$/, '')
+// Accept a bare host such as "name.workers.dev" and treat it as https.
+const BOT_URL = RAW_BOT_URL === '' || /^https?:\/\//i.test(RAW_BOT_URL) ? RAW_BOT_URL : `https://${RAW_BOT_URL}`
 
 interface BotAction {
   t: number

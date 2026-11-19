@@ -38,17 +38,27 @@ export const arcMainnet = defineChain({
 export function makeClients(env: Env) {
   const testnetUrl = env.TESTNET_RPC_URL || arcTestnet.rpcUrls.default.http[0]
   // Same-tick reads are grouped into one Multicall3 call, which keeps the number of requests low.
-  const testnet = createPublicClient({ chain: arcTestnet, transport: http(testnetUrl), batch: { multicall: true } })
-  const mainnet = createPublicClient({ chain: arcMainnet, transport: http(env.MAINNET_RPC_URL || arcMainnet.rpcUrls.default.http[0]) })
+  // JSON-RPC batching sends calls made in the same moment as one HTTP request, and the retries wait longer
+  // between tries, so the public RPC's rate limit is hit far less often.
+  const rpc = { batch: true, retryCount: 4, retryDelay: 1500 } as const
+  const testnet = createPublicClient({ chain: arcTestnet, transport: http(testnetUrl, rpc), batch: { multicall: true } })
+  const mainnet = createPublicClient({ chain: arcMainnet, transport: http(env.MAINNET_RPC_URL || arcMainnet.rpcUrls.default.http[0], rpc) })
   return { testnet, mainnet, testnetUrl }
 }
 
 export type Clients = ReturnType<typeof makeClients>
 
+/** Cleans a pasted key: removes spaces and quotes and adds the 0x prefix when it is missing. */
+function normalizeKey(raw: string): string {
+  const key = raw.trim().replace(/^["']|["']$/g, '').trim()
+  return /^[0-9a-fA-F]{64}$/.test(key) ? `0x${key}` : key
+}
+
 export function accountFrom(key: string | undefined) {
-  if (!key) return undefined
-  if (!/^0x[0-9a-fA-F]{64}$/.test(key)) throw new Error('A private key secret is not a 32-byte hex value')
-  return privateKeyToAccount(key as Hex)
+  if (!key || key.trim() === '') return undefined
+  const clean = normalizeKey(key)
+  if (!/^0x[0-9a-fA-F]{64}$/.test(clean)) throw new Error('A private key secret is not a 32-byte hex value')
+  return privateKeyToAccount(clean as Hex)
 }
 
 export function walletFor(env: Env, c: Clients, key: string | undefined) {

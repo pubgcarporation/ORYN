@@ -18,22 +18,41 @@ export interface RelayResult {
 /**
  * Copies each live Chainlink answer onto its testnet mirror with the ORIGINAL Chainlink timestamp.
  * The pool judges freshness against Chainlink's own update time, never against when this ran.
+ * All reads go out together (one batched request per chain), then any needed updates are sent one by one.
  */
 export async function relayPrices(env: Env, c: Clients): Promise<RelayResult> {
   const actions: Action[] = []
   const ageSec: Record<string, number> = {}
-  const wallet = walletFor(env, c, env.RELAYER_PRIVATE_KEY)
   const now = Math.floor(Date.now() / 1000)
 
-  for (const pair of PAIRS) {
-    const mirror = pair.mirror(env) as Address
+  let wallet: ReturnType<typeof walletFor>
+  try {
+    wallet = walletFor(env, c, env.RELAYER_PRIVATE_KEY)
+  } catch (e) {
+    actions.push({ t: Date.now(), kind: 'error', text: `RELAYER_PRIVATE_KEY: ${errText(e)}` })
+  }
+
+  const reads = await Promise.all(
+    PAIRS.map(async (pair) => {
+      const mirror = pair.mirror(env) as Address
+      try {
+        const [source, current] = await Promise.all([
+          c.mainnet.readContract({ address: pair.source, abi: feedAbi, functionName: 'latestRoundData' }),
+          c.testnet.readContract({ address: mirror, abi: mirrorAbi, functionName: 'latestRoundData' }).catch(() => undefined),
+        ])
+        return { pair, mirror, source, current, error: undefined as unknown }
+      } catch (error) {
+        return { pair, mirror, source: undefined, current: undefined, error }
+      }
+    }),
+  )
+
+  for (const read of reads) {
+    const { pair, mirror } = read
     try {
-      const [source, current] = await Promise.all([
-        c.mainnet.readContract({ address: pair.source, abi: feedAbi, functionName: 'latestRoundData' }),
-        c.testnet.readContract({ address: mirror, abi: mirrorAbi, functionName: 'latestRoundData' }).catch(() => undefined),
-      ])
-      const [roundId, answer, , updatedAt] = source
-      const mirrorUpdated = current ? current[3] : 0n
+      if (read.error !== undefined || !read.source) throw read.error ?? new Error('no data')
+      const [roundId, answer, , updatedAt] = read.source
+      const mirrorUpdated = read.current ? read.current[3] : 0n
       ageSec[pair.name] = mirrorUpdated > 0n ? now - Number(mirrorUpdated) : -1
       if (answer <= 0n || updatedAt === 0n) throw new Error('the Chainlink source returned an invalid round')
       if (updatedAt <= mirrorUpdated) continue
