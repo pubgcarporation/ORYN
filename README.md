@@ -12,6 +12,7 @@ Built with [Arc Studio](https://studio.arc.io)
 - Borrow: borrow USDC, EURC or cirBTC against what you supplied, with a simulator that previews your health factor first.
 - Swap: trade between USDC and EURC.
 - Bridge: move USDC between Arc Testnet and Ethereum Sepolia, Base Sepolia, Arbitrum Sepolia or Polygon Amoy.
+- Position simulator (Earn page): try a supply, borrow, withdraw or repay and a price move to see your health factor, limit and yearly interest before you sign.
 - Positions: see what you supplied and owe, your borrow limit and your health factor.
 - Assistant: type "send 5 USDC to 0x...", "swap 10 USDC to EURC" or "bridge 20 USDC from Ethereum to Arc". The assistant drafts the action, checks it against limits you set (max per action, daily total, allowed tokens and networks, slippage, saved recipients), and nothing moves until you confirm in your wallet. With an AI key it also understands free-form requests; without one, plain commands still work.
 - Agent wallet: a separate wallet (managed by Circle) that the assistant spends from with no wallet popups, for sends and swaps. You fund it from your wallet, set limits that the server enforces, pause it, and withdraw back to your wallet at any time. Bridging still asks you to confirm in your own wallet. Testnet only, and only fund it with small amounts.
