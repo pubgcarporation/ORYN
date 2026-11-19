@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import { useReadContract } from 'wagmi'
-import { ARC_ID, ASSETS, ASSET_LIST, POOL_ADDRESS, fmtAsset, fmtHealth, fmtUsd8, healthTone, poolAbi, valueUsd8, type AssetSymbol } from '@/lib/pool'
+import { ASSET_LIST, fmtAsset, fmtHealth, fmtUsd8, healthTone, valueUsd8, type AssetSymbol } from '@/lib/pool'
 import type { PoolState, UserState } from '@/hooks/usePool'
 
 const TONE_COLOR = { none: 'var(--ink)', safe: 'var(--success)', warn: 'var(--warn)', danger: 'var(--danger)' } as const
@@ -8,22 +7,13 @@ const TONE_COLOR = { none: 'var(--ink)', safe: 'var(--success)', warn: 'var(--wa
 export function BorrowSimulator({ pool, user }: { pool: PoolState; user: UserState }) {
   const [symbol, setSymbol] = useState<AssetSymbol>('USDC')
   const [pct, setPct] = useState(0)
-  const asset = ASSETS[symbol]
   const maxBorrow = user.assets[symbol].maxBorrow
   const amount = (maxBorrow * BigInt(pct)) / 100n
 
-  const { data: preview } = useReadContract({
-    address: POOL_ADDRESS,
-    abi: poolAbi,
-    functionName: 'previewBorrowLimit',
-    args: user.address && amount > 0n ? [user.address, asset.address, amount] : undefined,
-    chainId: ARC_ID,
-    query: { enabled: Boolean(user.address) && amount > 0n },
-  })
-
   const hasCollateral = user.collateralUsd8 > 0n
-  const healthAfter = amount > 0n && preview ? preview[0] : user.healthWad
   const debtAfter = user.debtUsd8 + valueUsd8(amount, symbol, pool.prices)
+  // Computed from live prices, so the preview moves with the market. Borrowing does not change the liquidation value.
+  const healthAfter = amount > 0n && debtAfter > 0n ? (user.liquidationUsd8 * 10n ** 18n) / debtAfter : user.healthWad
   const ltvAfter = hasCollateral ? Number((debtAfter * 10_000n) / user.collateralUsd8) / 100 : 0
   const tone = healthTone(healthAfter)
 

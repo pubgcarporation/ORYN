@@ -28,6 +28,13 @@ export function OracleCard({ pool }: { pool: PoolState }) {
   const maxAge = data?.[1]?.result
   if (typeof updatedAt !== 'bigint' || typeof maxAge !== 'bigint' || pool.prices.EURC === 0n) return null
 
+  const drift = pool.live
+    ? Math.max(
+        ...(['EURC', 'cirBTC', 'USDC'] as const).map((s) =>
+          pool.poolPrices[s] === 0n ? 0 : (Math.abs(Number(pool.prices[s] - pool.poolPrices[s])) / Number(pool.poolPrices[s])) * 100,
+        ),
+      )
+    : undefined
   const age = Math.max(0, now - Number(updatedAt))
   const remaining = Number(maxAge) - age
   const fresh = remaining > 0
@@ -69,6 +76,17 @@ export function OracleCard({ pool }: { pool: PoolState }) {
           </dd>
         </div>
       </dl>
+      {pool.live ? (
+        <p className="mt-3 flex items-center gap-2 text-xs" style={{ color: 'var(--muted)' }}>
+          <span className="inline-block size-2 animate-pulse rounded-full" style={{ background: 'var(--success)' }} aria-hidden="true" />
+          Live: prices above come straight from Chainlink and refresh every few seconds.
+          {drift !== undefined && drift >= 0.1 && ` The pool's own feed is ${drift.toFixed(2)}% off for now. Transactions are checked against the pool's feed until the relayer catches up.`}
+        </p>
+      ) : (
+        <p className="mt-3 text-xs" style={{ color: 'var(--subtle)' }}>
+          Live Chainlink prices are unavailable right now, so the pool's own feed prices are shown.
+        </p>
+      )}
     </section>
   )
 }

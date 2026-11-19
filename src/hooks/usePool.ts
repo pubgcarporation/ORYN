@@ -12,6 +12,7 @@ import {
   type Prices,
   type Reserve,
 } from '@/lib/pool'
+import { useLivePrices } from '@/hooks/useLivePrices'
 
 const REFRESH_MS = 8_000
 
@@ -32,8 +33,14 @@ const EMPTY_RESERVE: Reserve = {
 
 export interface PoolState {
   reserves: Record<AssetSymbol, Reserve>
-  /** 8-decimal USD price of every asset from the pool's Chainlink feeds. */
+  /** 8-decimal USD price of every asset: live Chainlink when it can be read, else the pool's own feeds. */
   prices: Prices
+  /** The prices the pool itself reads onchain (the testnet mirror feeds). Transactions are checked against these. */
+  poolPrices: Prices
+  /** True when `prices` are the live Chainlink prices. */
+  live: boolean
+  /** Unix seconds when Chainlink published each live price. */
+  liveUpdatedAt: Record<AssetSymbol, number> | undefined
   priceFresh: boolean
   paused: boolean
   loaded: boolean
@@ -58,18 +65,27 @@ export function usePool(): PoolState {
   const btc = data?.[2]?.result
   const fresh = data?.[3]?.result
   const paused = data?.[4]?.result
+  const liveFeed = useLivePrices()
+
+  const poolPrices: Prices = {
+    USDC: usdc ? reserveFromTuple(usdc).price8 : 0n,
+    EURC: eurc ? reserveFromTuple(eurc).price8 : 0n,
+    cirBTC: btc ? reserveFromTuple(btc).price8 : 0n,
+  }
+  const live = liveFeed !== undefined
+  const prices: Prices = live ? liveFeed.prices : poolPrices
+  const withPrice = (r: Reserve, symbol: AssetSymbol): Reserve => (live ? { ...r, price8: prices[symbol] } : r)
 
   return {
     reserves: {
-      USDC: usdc ? reserveFromTuple(usdc) : EMPTY_RESERVE,
-      EURC: eurc ? reserveFromTuple(eurc) : EMPTY_RESERVE,
-      cirBTC: btc ? reserveFromTuple(btc) : EMPTY_RESERVE,
+      USDC: withPrice(usdc ? reserveFromTuple(usdc) : EMPTY_RESERVE, 'USDC'),
+      EURC: withPrice(eurc ? reserveFromTuple(eurc) : EMPTY_RESERVE, 'EURC'),
+      cirBTC: withPrice(btc ? reserveFromTuple(btc) : EMPTY_RESERVE, 'cirBTC'),
     },
-    prices: {
-      USDC: usdc ? reserveFromTuple(usdc).price8 : 0n,
-      EURC: eurc ? reserveFromTuple(eurc).price8 : 0n,
-      cirBTC: btc ? reserveFromTuple(btc).price8 : 0n,
-    },
+    prices,
+    poolPrices,
+    live,
+    liveUpdatedAt: liveFeed?.updatedAt,
     priceFresh: fresh === true,
     paused: paused === true,
     loaded: isSuccess && Boolean(usdc) && Boolean(eurc) && Boolean(btc),
@@ -108,7 +124,7 @@ const EMPTY_POSITION: AssetPosition = {
 }
 
 /** The connected wallet's balances, allowances, supplied and borrowed amounts, and account health. */
-export function useUser(): UserState {
+export function useUser(pool?: PoolState): UserState {
   const { address } = useAccount()
   const user = address as Address
 
@@ -146,16 +162,42 @@ export function useUser(): UserState {
   const account = Array.isArray(accountRaw) && accountRaw.length === 5 ? (accountRaw as readonly bigint[]) : undefined
   const hasAccount = account !== undefined
 
+  const assets: Record<AssetSymbol, AssetPosition> = address
+    ? { USDC: position(0), EURC: position(6), cirBTC: position(12) }
+    : { USDC: EMPTY_POSITION, EURC: EMPTY_POSITION, cirBTC: EMPTY_POSITION }
+
+  // With live Chainlink prices, re-value the account from the wallet's balances and the pool's risk
+  // settings, so health and limits move the moment a price does. Without them, use the pool's own numbers.
+  let collateral = hasAccount ? account[0] : 0n
+  let debt = hasAccount ? account[1] : 0n
+  let limit = hasAccount ? account[2] : 0n
+  let liquidation = hasAccount ? account[3] : 0n
+  let health = hasAccount ? account[4] : MAX_UINT
+  if (hasAccount && pool?.live && pool.loaded) {
+    collateral = 0n
+    debt = 0n
+    limit = 0n
+    liquidation = 0n
+    for (const a of ASSET_LIST) {
+      const r = pool.reserves[a.symbol]
+      const unit = 10n ** BigInt(a.decimals)
+      const value = (assets[a.symbol].supplied * pool.prices[a.symbol]) / unit
+      collateral += value
+      limit += (value * r.ltv) / 10_000n
+      liquidation += (value * r.liquidationThreshold) / 10_000n
+      debt += (assets[a.symbol].debt * pool.prices[a.symbol] + unit - 1n) / unit
+    }
+    health = debt === 0n ? MAX_UINT : (liquidation * 10n ** 18n) / debt
+  }
+
   return {
     address,
-    assets: address
-      ? { USDC: position(0), EURC: position(6), cirBTC: position(12) }
-      : { USDC: EMPTY_POSITION, EURC: EMPTY_POSITION, cirBTC: EMPTY_POSITION },
-    collateralUsd8: hasAccount ? account[0] : 0n,
-    debtUsd8: hasAccount ? account[1] : 0n,
-    borrowLimitUsd8: hasAccount ? account[2] : 0n,
-    liquidationUsd8: hasAccount ? account[3] : 0n,
-    healthWad: hasAccount ? account[4] : MAX_UINT,
+    assets,
+    collateralUsd8: collateral,
+    debtUsd8: debt,
+    borrowLimitUsd8: limit,
+    liquidationUsd8: liquidation,
+    healthWad: health,
     loaded: Boolean(address) && isSuccess,
     refetch: () => void refetch(),
   }

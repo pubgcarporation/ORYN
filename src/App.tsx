@@ -35,7 +35,7 @@ export default function App() {
 function AppShell({ path }: { path: string }) {
   const tab = tabFromPath(path)
   const pool = usePool()
-  const user = useUser()
+  const user = useUser(pool)
 
   useEffect(() => {
     if (!tab || isLegacyPath(path)) navigate('/app/markets', { replace: true })
