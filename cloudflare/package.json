@@ -1,0 +1,16 @@
+{
+  "name": "oryn-liquidation-bot",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev --test-scheduled"
+  },
+  "dependencies": {
+    "viem": "2.57.5"
+  },
+  "devDependencies": {
+    "wrangler": "^4.165.0"
+  }
+}
