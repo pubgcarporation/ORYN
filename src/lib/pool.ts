@@ -57,6 +57,8 @@ export const poolAbi = parseAbi([
   'function RESERVE_FACTOR() view returns (uint256)',
   'function priceUpdatedAt() view returns (uint256)',
   'function priceFeed() view returns (address)',
+  'function aToken(address asset) view returns (address)',
+  'function debtToken(address asset) view returns (address)',
   'function maxPriceAge() view returns (uint256)',
 ])
 

@@ -8,6 +8,7 @@ Built with [Arc Studio](https://studio.arc.io)
 
 - Landing page at `/` with live market data, and the app at `/app/earn`, `/app/borrow`, `/app/swap`, `/app/bridge` and `/app/positions`.
 - Sign in with Google (a wallet is created for you) or connect your own wallet, all from one sign-in window.
+- Markets: click a market card for its full page: price, rates, caps, max LTV, liquidation threshold and bonus, where your own account sits against them, and the token contracts.
 - Earn: deposit USDC, EURC or cirBTC and earn a variable rate. Deposits count as collateral.
 - Borrow: borrow USDC, EURC or cirBTC against what you supplied, with a simulator that previews your health factor first.
 - Swap: trade between USDC and EURC.

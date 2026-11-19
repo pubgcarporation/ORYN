@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import { Info } from 'lucide-react'
 import { ASSET_LIST, fmtApr, fmtAsset, fmtUsd8, valueUsd8, type AssetInfo } from '@/lib/pool'
+import { Link, usePath } from '@/lib/router'
+import { AssetDetail } from '@/components/AssetDetail'
 import type { PoolState, UserState } from '@/hooks/usePool'
 import { ActionSheet, type ActionKind } from '@/components/ActionSheet'
 import { BorrowSimulator } from '@/components/BorrowSimulator'
@@ -16,6 +18,10 @@ interface Props {
 
 export function MarketsPage({ pool, user }: Props) {
   const [sheet, setSheet] = useState<{ action: ActionKind; symbol: AssetInfo['symbol'] } | null>(null)
+  // /app/markets/usdc opens that asset's detail page.
+  const slug = usePath().split('/')[3]?.toLowerCase()
+  const detail = ASSET_LIST.find((a) => a.symbol.toLowerCase() === slug)
+  if (detail) return <AssetDetail symbol={detail.symbol} pool={pool} user={user} />
 
   const sum = (pick: (symbol: AssetInfo['symbol']) => bigint) => ASSET_LIST.reduce((acc, a) => acc + valueUsd8(pick(a.symbol), a.symbol, pool.prices), 0n)
   const supplyUsd = sum((s) => pool.reserves[s].totalSupplied)
@@ -53,12 +59,19 @@ export function MarketsPage({ pool, user }: Props) {
           const mine = user.assets[asset.symbol]
           const util = Math.min(100, Number(r.utilization / 10n ** 14n) / 100)
           return (
-            <section key={asset.symbol} className="card card-hover p-4">
+            <section key={asset.symbol} className="card card-hover relative p-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <TokenBadge symbol={asset.symbol} size={36} />
                   <div>
-                    <div className="display text-lg font-semibold">{asset.symbol}</div>
+                    {/* The whole card is clickable through this link; the buttons below sit above it. */}
+                    <Link
+                      to={`/app/markets/${asset.symbol.toLowerCase()}`}
+                      aria-label={`${asset.symbol} market details`}
+                      className="display block rounded-lg text-lg font-semibold after:absolute after:inset-0 after:rounded-3xl after:content-['']"
+                    >
+                      {asset.symbol}
+                    </Link>
                     <div className="text-xs" style={{ color: 'var(--subtle)' }}>
                       {asset.name}
                     </div>
@@ -109,7 +122,7 @@ export function MarketsPage({ pool, user }: Props) {
                 </div>
               )}
 
-              <div className="mt-3 grid grid-cols-2 gap-2">
+              <div className="relative z-10 mt-3 grid grid-cols-2 gap-2">
                 <button className="btn-primary" onClick={() => setSheet({ action: 'deposit', symbol: asset.symbol })}>
                   Supply
                 </button>
