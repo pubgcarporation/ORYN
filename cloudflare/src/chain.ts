@@ -1,4 +1,4 @@
-import { createPublicClient, createWalletClient, defineChain, http, parseAbi, type Address, type Hex } from 'viem'
+import { createPublicClient, createWalletClient, defineChain, fallback, http, parseAbi, type Address, type Hex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { arcTestnet } from 'viem/chains'
 import type { Env } from './types'
@@ -32,18 +32,35 @@ export const arcMainnet = defineChain({
   id: 5042,
   name: 'Arc',
   nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
-  rpcUrls: { default: { http: ['https://rpc.mainnet.arc.io'] } },
+  // Arc's own endpoints (docs.arc.io/arc/references/rpc-endpoints): Circle first, then the node providers.
+  // All of them answer without an API key.
+  rpcUrls: {
+    default: {
+      http: [
+        'https://rpc.mainnet.arc.io',
+        'https://rpc.blockdaemon.mainnet.arc.io',
+        'https://rpc.drpc.mainnet.arc.io',
+        'https://rpc.quicknode.mainnet.arc.io',
+      ],
+    },
+  },
 })
 
+/** One transport that tries each endpoint in order and moves to the next when one refuses or rate-limits. */
+function transportFor(urls: (string | undefined)[]) {
+  // JSON-RPC batching sends calls made in the same moment as one HTTP request.
+  const rpc = { batch: true, retryCount: 1, retryDelay: 1000, timeout: 8_000 } as const
+  const unique = [...new Set(urls.filter((u): u is string => Boolean(u && u.trim())))]
+  return fallback(unique.map((u) => http(u, rpc)))
+}
+
 export function makeClients(env: Env) {
-  const testnetUrl = env.TESTNET_RPC_URL || arcTestnet.rpcUrls.default.http[0]
+  const testnetTransport = transportFor([env.TESTNET_RPC_URL, ...arcTestnet.rpcUrls.default.http])
+  const mainnetTransport = transportFor([env.MAINNET_RPC_URL, ...arcMainnet.rpcUrls.default.http])
   // Same-tick reads are grouped into one Multicall3 call, which keeps the number of requests low.
-  // JSON-RPC batching sends calls made in the same moment as one HTTP request, and the retries wait longer
-  // between tries, so the public RPC's rate limit is hit far less often.
-  const rpc = { batch: true, retryCount: 4, retryDelay: 1500 } as const
-  const testnet = createPublicClient({ chain: arcTestnet, transport: http(testnetUrl, rpc), batch: { multicall: true } })
-  const mainnet = createPublicClient({ chain: arcMainnet, transport: http(env.MAINNET_RPC_URL || arcMainnet.rpcUrls.default.http[0], rpc) })
-  return { testnet, mainnet, testnetUrl }
+  const testnet = createPublicClient({ chain: arcTestnet, transport: testnetTransport, batch: { multicall: true } })
+  const mainnet = createPublicClient({ chain: arcMainnet, transport: mainnetTransport })
+  return { testnet, mainnet, testnetTransport }
 }
 
 export type Clients = ReturnType<typeof makeClients>
@@ -64,7 +81,7 @@ export function accountFrom(key: string | undefined) {
 export function walletFor(env: Env, c: Clients, key: string | undefined) {
   const account = accountFrom(key)
   if (!account) return undefined
-  return { account, client: createWalletClient({ account, chain: arcTestnet, transport: http(c.testnetUrl) }) }
+  return { account, client: createWalletClient({ account, chain: arcTestnet, transport: c.testnetTransport }) }
 }
 
 export const poolAddress = (env: Env) => env.POOL_ADDRESS as Address
