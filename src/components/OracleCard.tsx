@@ -1,20 +1,30 @@
 import { useEffect, useState } from 'react'
 import { useReadContracts } from 'wagmi'
-import { Clock, ShieldCheck } from 'lucide-react'
-import { ARC_ID, POOL_ADDRESS, poolAbi } from '@/lib/pool'
+import { CircleCheck, TriangleAlert } from 'lucide-react'
+import { ARC_ID, POOL_ADDRESS, poolAbi, type AssetSymbol } from '@/lib/pool'
 import type { PoolState } from '@/hooks/usePool'
+import { TokenBadge } from '@/components/ui'
 
 function span(seconds: number): string {
-  if (seconds < 3600) return `${Math.max(1, Math.floor(seconds / 60))} min`
+  if (seconds < 90) return 'moments'
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} min`
   if (seconds < 86_400) return `${Math.floor(seconds / 3600)} h`
-  return `${Math.floor(seconds / 86_400)} d ${Math.floor((seconds % 86_400) / 3600)} h`
+  const d = Math.floor(seconds / 86_400)
+  const h = Math.floor((seconds % 86_400) / 3600)
+  return h === 0 ? `${d} d` : `${d} d ${h} h`
 }
 
-/** The Chainlink prices the pool uses, how old the oldest one is, and when borrowing pauses if it is not refreshed. */
+const FEEDS: { symbol: AssetSymbol; pair: string; digits: number }[] = [
+  { symbol: 'USDC', pair: 'USDC / USD', digits: 4 },
+  { symbol: 'EURC', pair: 'EURC / USD', digits: 4 },
+  { symbol: 'cirBTC', pair: 'BTC / USD', digits: 0 },
+]
+
+/** The Chainlink prices the pool uses, when each was published, and whether borrowing is open. */
 export function OracleCard({ pool }: { pool: PoolState }) {
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000))
   useEffect(() => {
-    const id = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 30_000)
+    const id = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 5_000)
     return () => clearInterval(id)
   }, [])
   const { data } = useReadContracts({
@@ -28,65 +38,64 @@ export function OracleCard({ pool }: { pool: PoolState }) {
   const maxAge = data?.[1]?.result
   if (typeof updatedAt !== 'bigint' || typeof maxAge !== 'bigint' || pool.prices.EURC === 0n) return null
 
-  const drift = pool.live
-    ? Math.max(
-        ...(['EURC', 'cirBTC', 'USDC'] as const).map((s) =>
-          pool.poolPrices[s] === 0n ? 0 : (Math.abs(Number(pool.prices[s] - pool.poolPrices[s])) / Number(pool.poolPrices[s])) * 100,
-        ),
-      )
-    : undefined
-  const age = Math.max(0, now - Number(updatedAt))
-  const remaining = Number(maxAge) - age
-  const fresh = remaining > 0
+  // How far the pool's own copy is behind live Chainlink, per feed, in percent. Zero when they match.
+  const behind = (symbol: AssetSymbol): number => {
+    const c = pool.chainlink?.[symbol]
+    const p = pool.prices[symbol]
+    if (c === undefined || p === 0n) return 0
+    return (Math.abs(Number(c - p)) / Number(p)) * 100
+  }
+  const drift = Math.max(...FEEDS.map(({ symbol }) => behind(symbol)))
+
+  const poolAge = Math.max(0, now - Number(updatedAt))
+  const fresh = Number(maxAge) - poolAge > 0 && pool.priceFresh
+  const open = fresh && !pool.paused
 
   return (
-    <section className="card mt-6 p-5">
+    <section className="card mt-6 p-5 sm:p-6">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="display text-xl font-semibold">Chainlink price</h2>
-          <p className="mt-1 max-w-md text-sm" style={{ color: 'var(--muted)' }}>
-            The pool values USDC, EURC and cirBTC with Chainlink prices. Nobody sets them by hand: the pool reads the feeds itself, uses the time Chainlink published each price, and pauses borrowing and liquidations if any of them goes stale. On testnet the Arc mainnet Chainlink prices are relayed onto the testnet feeds.
-          </p>
+          <h2 className="display text-xl font-semibold">Chainlink prices</h2>
         </div>
         <span
           className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold"
-          style={{ background: fresh ? 'rgba(94,224,138,0.12)' : 'rgba(245,197,107,0.12)', color: fresh ? 'var(--success)' : 'var(--warn)' }}
+          style={{ background: open ? 'rgba(94,224,138,0.12)' : 'rgba(245,197,107,0.12)', color: open ? 'var(--success)' : 'var(--warn)' }}
         >
-          <ShieldCheck className="size-3.5" /> {fresh ? 'Fresh' : 'Stale'}
+          {open ? <CircleCheck className="size-3.5" aria-hidden="true" /> : <TriangleAlert className="size-3.5" aria-hidden="true" />}
+          {open ? 'Borrowing open' : 'Borrowing paused'}
         </span>
       </div>
-      <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="inner p-3">
-          <dt className="label">EURC / USD</dt>
-          <dd className="display num mt-1 text-lg font-semibold">${(Number(pool.prices.EURC) / 1e8).toFixed(4)}</dd>
-        </div>
-        <div className="inner p-3">
-          <dt className="label">BTC / USD</dt>
-          <dd className="display num mt-1 text-lg font-semibold">${(Number(pool.prices.cirBTC) / 1e8).toLocaleString('en-US', { maximumFractionDigits: 0 })}</dd>
-        </div>
-        <div className="inner p-3">
-          <dt className="label">Oldest update</dt>
-          <dd className="display num mt-1 text-lg font-semibold">{span(age)} ago</dd>
-        </div>
-        <div className="inner p-3">
-          <dt className="label">{fresh ? 'Borrowing pauses in' : 'Borrowing paused'}</dt>
-          <dd className="display num mt-1 flex items-center gap-1.5 text-lg font-semibold">
-            <Clock className="size-4 shrink-0" style={{ color: 'var(--subtle)' }} />
-            {fresh ? span(remaining) : 'Now'}
-          </dd>
-        </div>
-      </dl>
-      {pool.live ? (
-        <p className="mt-3 flex items-center gap-2 text-xs" style={{ color: 'var(--muted)' }}>
-          <span className="inline-block size-2 animate-pulse rounded-full" style={{ background: 'var(--success)' }} aria-hidden="true" />
-          Live: prices above come straight from Chainlink and refresh every few seconds.
-          {drift !== undefined && drift >= 0.1 && ` The pool's own feed is ${drift.toFixed(2)}% off for now. Transactions are checked against the pool's feed until the relayer catches up.`}
-        </p>
-      ) : (
-        <p className="mt-3 text-xs" style={{ color: 'var(--subtle)' }}>
-          Live Chainlink prices are unavailable right now, so the pool's own feed prices are shown.
-        </p>
-      )}
+
+      <ul className="mt-4 grid gap-3 sm:grid-cols-3">
+        {FEEDS.map(({ symbol, pair, digits }) => {
+          const lag = behind(symbol)
+          const synced = lag < 0.0001
+          const published = pool.liveUpdatedAt?.[symbol]
+          // The copy carries Chainlink's own timestamp, so when the two prices match the time is the same.
+          const age = synced && published ? Math.max(0, now - published) : undefined
+          return (
+            <li key={symbol} className="inner flex items-center gap-3 p-3.5">
+              <TokenBadge symbol={symbol} size={32} />
+              <div className="min-w-0">
+                <div className="label">{pair}</div>
+                <div className="display num text-lg font-semibold">${(Number(pool.prices[symbol]) / 1e8).toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits })}</div>
+                <div className="num text-[11px]" style={{ color: 'var(--subtle)' }}>
+                  {age !== undefined ? `published ${age < 90 ? 'just now' : `${span(age)} ago`}` : synced ? 'pool feed' : `updating, Chainlink is ${lag.toFixed(2)}% away`}
+                </div>
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+
+      <p className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-pretty" style={{ color: 'var(--muted)' }}>
+                <span>
+          {open
+            ? `Borrowing and liquidations stay open. They pause only if a price goes ${span(Number(maxAge))} without an update. Stablecoin feeds update about once a day, so an older time is normal.`
+            : 'Borrowing and liquidations are paused until the pool has fresh prices.'}
+        </span>
+        {drift >= 0.1 && <span>The pool's copy is {drift.toFixed(2)}% behind live Chainlink until the relayer catches up.</span>}
+      </p>
     </section>
   )
 }

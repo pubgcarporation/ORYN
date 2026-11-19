@@ -17,7 +17,7 @@ Built with [Arc Studio](https://studio.arc.io)
 - Assistant: type "send 5 USDC to 0x...", "swap 10 USDC to EURC" or "bridge 20 USDC from Ethereum to Arc". The assistant drafts the action, checks it against limits you set (max per action, daily total, allowed tokens and networks, slippage, saved recipients), and nothing moves until you confirm in your wallet. With an AI key it also understands free-form requests; without one, plain commands still work.
 - Agent wallet: a separate wallet (managed by Circle) that the assistant spends from with no wallet popups, for sends and swaps. You fund it from your wallet, set limits that the server enforces, pause it, and withdraw back to your wallet at any time. Bridging still asks you to confirm in your own wallet. Testnet only, and only fund it with small amounts.
 
-The app shows live Chainlink prices (read from Arc mainnet every few seconds), and health factors, values and the borrow simulator are calculated from them. Transactions are still checked by the market against its own feeds.
+The app shows the market's own price feeds, which a bot keeps in sync with Chainlink, so what you see is what every transaction is checked against. It also compares them with live Chainlink on Arc mainnet and tells you if they are behind.
 
 Prices for USDC, EURC and cirBTC come from Chainlink feeds, not from the market owner, and borrowing and liquidations pause if a price goes stale. Arc Testnet has no Chainlink feeds yet, so on testnet the Arc mainnet Chainlink prices are copied onto testnet feeds by a relay script. This is a testnet demo and should not be used with real funds.
 

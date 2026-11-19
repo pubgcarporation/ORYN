@@ -78,7 +78,7 @@ export function BorrowSimulator({ pool, user }: { pool: PoolState; user: UserSta
   const netAfter = yearly(after)
 
   return (
-    <Shell live={pool.live}>
+    <Shell live={pool.loaded}>
       {/* Action */}
       <div className="mt-4 grid grid-cols-2 gap-1.5 rounded-2xl p-1.5 sm:grid-cols-4" style={{ background: 'rgba(255,255,255,0.04)' }} role="group" aria-label="What to simulate">
         {ACTIONS.map((a) => (
@@ -227,7 +227,7 @@ function Shell({ children, live }: { children: React.ReactNode; live?: boolean }
         {live && (
           <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ background: 'rgba(94,224,138,0.12)', color: 'var(--success)' }}>
             <span className="size-1.5 animate-pulse rounded-full motion-reduce:animate-none" style={{ background: 'var(--success)' }} aria-hidden="true" />
-            Live prices
+            Pool prices
           </span>
         )}
       </div>

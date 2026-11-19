@@ -33,12 +33,14 @@ const EMPTY_RESERVE: Reserve = {
 
 export interface PoolState {
   reserves: Record<AssetSymbol, Reserve>
-  /** 8-decimal USD price of every asset: live Chainlink when it can be read, else the pool's own feeds. */
+  /** 8-decimal USD price of every asset, from the pool's own feeds (the testnet copies of Chainlink). Every onchain check uses these. */
   prices: Prices
-  /** The prices the pool itself reads onchain (the testnet mirror feeds). Transactions are checked against these. */
+  /** Same as `prices`. Kept so older code that reads it still works. */
   poolPrices: Prices
-  /** True when `prices` are the live Chainlink prices. */
+  /** True when the live Chainlink prices could be read, for comparing against the pool's feeds. */
   live: boolean
+  /** Live Chainlink prices straight from Arc mainnet. Used only to show how far the pool's feeds are behind. */
+  chainlink: Prices | undefined
   /** Unix seconds when Chainlink published each live price. */
   liveUpdatedAt: Record<AssetSymbol, number> | undefined
   priceFresh: boolean
@@ -73,18 +75,18 @@ export function usePool(): PoolState {
     cirBTC: btc ? reserveFromTuple(btc).price8 : 0n,
   }
   const live = liveFeed !== undefined
-  const prices: Prices = live ? liveFeed.prices : poolPrices
-  const withPrice = (r: Reserve, symbol: AssetSymbol): Reserve => (live ? { ...r, price8: prices[symbol] } : r)
+  const prices: Prices = poolPrices
 
   return {
     reserves: {
-      USDC: withPrice(usdc ? reserveFromTuple(usdc) : EMPTY_RESERVE, 'USDC'),
-      EURC: withPrice(eurc ? reserveFromTuple(eurc) : EMPTY_RESERVE, 'EURC'),
-      cirBTC: withPrice(btc ? reserveFromTuple(btc) : EMPTY_RESERVE, 'cirBTC'),
+      USDC: usdc ? reserveFromTuple(usdc) : EMPTY_RESERVE,
+      EURC: eurc ? reserveFromTuple(eurc) : EMPTY_RESERVE,
+      cirBTC: btc ? reserveFromTuple(btc) : EMPTY_RESERVE,
     },
     prices,
     poolPrices,
     live,
+    chainlink: liveFeed?.prices,
     liveUpdatedAt: liveFeed?.updatedAt,
     priceFresh: fresh === true,
     paused: paused === true,
@@ -166,14 +168,14 @@ export function useUser(pool?: PoolState): UserState {
     ? { USDC: position(0), EURC: position(6), cirBTC: position(12) }
     : { USDC: EMPTY_POSITION, EURC: EMPTY_POSITION, cirBTC: EMPTY_POSITION }
 
-  // With live Chainlink prices, re-value the account from the wallet's balances and the pool's risk
+  // With the pool's current prices, re-value the account from the wallet's balances and the pool's risk
   // settings, so health and limits move the moment a price does. Without them, use the pool's own numbers.
   let collateral = hasAccount ? account[0] : 0n
   let debt = hasAccount ? account[1] : 0n
   let limit = hasAccount ? account[2] : 0n
   let liquidation = hasAccount ? account[3] : 0n
   let health = hasAccount ? account[4] : MAX_UINT
-  if (hasAccount && pool?.live && pool.loaded) {
+  if (hasAccount && pool?.loaded) {
     collateral = 0n
     debt = 0n
     limit = 0n
